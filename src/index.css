@@ -1,0 +1,308 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset y estilos base mejorados */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    @apply transition-colors duration-300;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', system-ui, sans-serif;
+  }
+
+  /* Modo oscuro - Colores base */
+  :root {
+    --color-bg: #ffffff;
+    --color-text: #1f2937;
+    --color-border: #e5e7eb;
+  }
+
+  .dark {
+    --color-bg: #111827;
+    --color-text: #f9fafb;
+    --color-border: #374151;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+}
+
+/* Componentes personalizados profesionales */
+@layer components {
+  /* Botones */
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white px-8 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 hover:from-primary-600 hover:to-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-primary-600 border-2 border-primary-200 px-8 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 hover:bg-primary-50 hover:border-primary-300 focus:outline-none focus:ring-4 focus:ring-primary-200 active:scale-95;
+    
+    .dark & {
+      @apply bg-gray-800 text-primary-400 border-primary-700 hover:bg-gray-700 hover:border-primary-600;
+    }
+  }
+  
+  .btn-accent {
+    @apply bg-gradient-to-r from-accent-500 to-accent-600 text-white px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300 hover:from-accent-600 hover:to-accent-700 focus:outline-none focus:ring-4 focus:ring-accent-200 active:scale-95;
+  }
+  
+  .btn-glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-xl font-semibold hover:bg-white/20 hover:border-white/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/50;
+    
+    .dark & {
+      @apply bg-gray-700/50 border-gray-600 hover:bg-gray-600/50 hover:border-gray-500;
+    }
+  }
+
+  /* Cards */
+  .card-hover {
+    @apply transform transition-all duration-500 hover:scale-105 hover:shadow-large;
+  }
+  
+  .card-glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl;
+    
+    .dark & {
+      @apply bg-gray-800/50 border-gray-700;
+    }
+  }
+  
+  .card-elevated {
+    @apply bg-white rounded-3xl shadow-soft border border-neutral-100 hover:shadow-large transition-all duration-300;
+    
+    .dark & {
+      @apply bg-gray-800 border-gray-700 hover:shadow-lg hover:shadow-gray-900/50;
+    }
+  }
+
+  /* Efectos especiales */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary-500 via-primary-600 to-accent-500;
+  }
+  
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+    
+    .dark & {
+      @apply bg-gray-800/50 border-gray-700;
+    }
+  }
+
+  /* Inputs y formularios para modo oscuro */
+  .input-dark {
+    @apply dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400;
+  }
+
+  /* Navbar y header para modo oscuro */
+  .nav-dark {
+    @apply dark:bg-gray-900 dark:border-gray-800 dark:text-white;
+  }
+
+  /* Footer para modo oscuro */
+  .footer-dark {
+    @apply dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800;
+  }
+
+  /* Animaciones personalizadas */
+  .animate-float-slow {
+    animation: float 8s ease-in-out infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulseSoft 3s ease-in-out infinite;
+  }
+}
+
+/* Utilidades personalizadas */
+@layer utilities {
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+  
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  /* Utilidades específicas para modo oscuro */
+  .text-dark-mode {
+    @apply dark:text-gray-100;
+  }
+  
+  .bg-dark-mode {
+    @apply dark:bg-gray-900;
+  }
+  
+  .border-dark-mode {
+    @apply dark:border-gray-700;
+  }
+}
+
+/* Animaciones personalizadas */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulseSoft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Scrollbar personalizado para modo oscuro */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Mejoras para inputs en modo oscuro */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #9ca3af;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3b82f6;
+  ring-color: #3b82f6;
+}
+
+/* Transiciones suaves para todos los elementos */
+* {
+  transition: background-color 0.3s ease, 
+              border-color 0.3s ease, 
+              color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+/* Estados de hover mejorados para modo oscuro */
+.dark .hover\:bg-gray-50:hover {
+  background-color: #374151;
+}
+
+.dark .hover\:text-gray-900:hover {
+  color: #f9fafb;
+}
+
+.dark .hover\:border-gray-300:hover {
+  border-color: #6b7280;
+}
+
+/* Efectos de gradiente que funcionan en modo oscuro */
+.dark .gradient-bg {
+  @apply bg-gradient-to-br from-primary-600 via-primary-700 to-accent-600;
+}
+
+/* Sombras mejoradas para modo oscuro */
+.dark .shadow-soft {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.dark .shadow-large {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* Mejoras para modales y overlays */
+.dark .bg-black\/50 {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Estados de disabled mejorados */
+.dark .disabled\:bg-gray-300:disabled {
+  background-color: #4b5563;
+}
+
+.dark .disabled\:text-gray-500:disabled {
+  color: #9ca3af;
+}
+
+/* Utilidades para textos en modo oscuro */
+.text-gray-800.dark {
+  color: #e5e7eb;
+}
+
+.text-gray-600.dark {
+  color: #d1d5db;
+}
+
+.text-gray-500.dark {
+  color: #9ca3af;
+}
+
+.text-gray-400.dark {
+  color: #6b7280;
+}
+
+/* Mejoras para bordes en modo oscuro */
+.border-gray-200.dark {
+  border-color: #374151;
+}
+
+.border-gray-300.dark {
+  border-color: #4b5563;
+}
+
+/* Backgrounds para modo oscuro */
+.bg-gray-50.dark {
+  background-color: #1f2937;
+}
+
+.bg-gray-100.dark {
+  background-color: #374151;
+}
+
+.bg-white.dark {
+  background-color: #111827;
+}
