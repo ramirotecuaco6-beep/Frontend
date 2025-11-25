@@ -1,7 +1,5 @@
 import { useState } from "react";
-// Importa las funciones de autenticación
-import { register, login } from "../components/utils/firebase.utils";
-import { getAuth } from "firebase/auth"; // ✅ Import necesario para obtener el token
+import { register, login, loginWithGoogle } from "../components/utils/firebase.utils";
 
 // ⬅ Cargar URL desde .env
 const BASE_URL = import.meta.env.VITE_API_URL 
@@ -10,7 +8,6 @@ const BASE_URL = import.meta.env.VITE_API_URL
 
 console.log("🌐 API conectada a:", BASE_URL);
 
-// Componente de carga
 const Spinner = () => (
   <svg
     className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -39,10 +36,12 @@ export default function AuthModal({ onClose }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null); // ✅ Nuevo estado para éxito
+  const [success, setSuccess] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Reset estados cuando cambia la vista
+  // 👁 Estado para mostrar/ocultar contraseña
+  const [showPassword, setShowPassword] = useState(false);
+
   const toggleView = () => {
     setIsLoginView((s) => !s);
     setError(null);
@@ -51,10 +50,8 @@ export default function AuthModal({ onClose }) {
     setPassword("");
   };
 
-  // 🚀 Nueva función para sincronizar usuario con backend
   const syncWithBackend = async (user) => {
     try {
-      // 🔥 Obtenemos el token Firebase
       const token = await user.getIdToken();
       console.log("Token de Firebase (syncWithBackend):", token);
 
@@ -69,14 +66,11 @@ export default function AuthModal({ onClose }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // Enviamos token al backend
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          email: user.email,
-        }),
+        body: JSON.stringify({ email: user.email }),
       });
 
-      // Manejo seguro si backend devuelve non-JJSON
       let data;
       try {
         data = await response.json();
@@ -92,7 +86,6 @@ export default function AuthModal({ onClose }) {
     }
   };
 
-  // Función que maneja tanto login como registro
   const handleAuth = async (event) => {
     event.preventDefault();
     setError(null);
@@ -110,7 +103,6 @@ export default function AuthModal({ onClose }) {
     setIsLoading(true);
 
     try {
-      const auth = getAuth();
       let userCredential;
 
       if (isLoginView) {
@@ -176,12 +168,50 @@ export default function AuthModal({ onClose }) {
     }
   };
 
+  const handleGoogleAuth = async () => {
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
+
+    try {
+        // Llama a la nueva función que ya maneja la creación/sincronización con MongoDB
+        const userCredential = await loginWithGoogle();
+        
+        if (userCredential) {
+            // El syncWithBackend es opcional si el backend necesita hacer más cosas post-auth
+            await syncWithBackend(userCredential.user); 
+
+            setSuccess("¡Inicio de sesión con Google exitoso!");
+            
+            // Esperar un poco y cerrar el modal
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            onClose();
+        }
+    } catch (err) {
+        console.error("Error en Google Auth:", err);
+        let msg = "Error al iniciar sesión con Google.";
+
+        if (err.code === 'auth/popup-closed-by-user') {
+            msg = "El inicio de sesión fue cancelado.";
+        } else if (err.message) {
+             // Muestra errores de red del API de MongoDB
+             msg = "Error de conexión: " + err.message;
+        }
+        
+        setError(msg);
+
+    } finally {
+        setIsLoading(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+        
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors text-2xl"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl transition-colors"
         >
           ✕
         </button>
@@ -191,66 +221,69 @@ export default function AuthModal({ onClose }) {
         </h2>
 
         <form onSubmit={handleAuth} className="space-y-4">
+          
+          {/* EMAIL */}
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Correo Electrónico
             </label>
             <input
               type="email"
-              id="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
               disabled={isLoading}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
               placeholder="tu@correo.com"
+              required
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
+          {/* PASSWORD CON OJO 👁 */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Contraseña
             </label>
+
             <input
-              type="password"
-              id="password"
+              type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
               disabled={isLoading}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
               placeholder="Mínimo 6 caracteres"
+              required
             />
+
+            {/* Botón para mostrar/ocultar ☀ */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-800"
+              disabled={isLoading}
+            >
+              {showPassword ? "☀" : "⛅"}
+            </button>
           </div>
 
-          {/* ✅ Mensajes de éxito */}
+          {/* Success */}
           {success && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-700 text-sm font-medium text-center">
-                {success}
-              </p>
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm text-center">
+              {success}
             </div>
           )}
 
-          {/* ❌ Mensajes de error */}
+          {/* Error */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm font-medium text-center">
-                {error}
-              </p>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">
+              {error}
             </div>
           )}
 
+          {/* BOTÓN ENVIAR */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition-all duration-300 mt-5 flex items-center justify-center disabled:bg-green-400 disabled:cursor-not-allowed"
+            className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition-all duration-300 flex items-center justify-center disabled:bg-green-400 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
@@ -267,25 +300,32 @@ export default function AuthModal({ onClose }) {
 
         <p className="text-center text-sm mt-4 text-gray-600">
           {isLoginView ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}
-          <button
-            onClick={toggleView}
+          <button 
+            onClick={toggleView} 
             disabled={isLoading}
-            className="text-green-600 font-semibold ml-2 hover:text-green-700 transition-colors disabled:text-gray-400"
-            type="button"
+            className="text-green-600 ml-2 font-semibold hover:text-green-700 transition-colors disabled:text-gray-400"
           >
             {isLoginView ? "Regístrate aquí" : "Inicia Sesión"}
           </button>
         </p>
 
         <div className="mt-6 border-t pt-4">
-          <button
-            className="w-full flex items-center justify-center bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          <button 
+            onClick={handleGoogleAuth}
             disabled={isLoading}
+            className="w-full bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-all duration-300 flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            <span className="text-xl mr-2">G</span>
-            Continuar con Google
+            {isLoading ? (
+              <Spinner />
+            ) : (
+              <>
+                <span className="text-xl mr-2">G</span>
+                Continuar con Google
+              </>
+            )}
           </button>
         </div>
+
       </div>
     </div>
   );
