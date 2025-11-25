@@ -21,22 +21,22 @@ import {
 } from "firebase/firestore";
 import {
   getStorage,
-  ref,
+  ref,y
   uploadBytes,
   getDownloadURL
 } from "firebase/storage";
 
+
 // 🧩 Configuración de Firebase (datos reales del proyecto)
 const firebaseConfig = {
-  apiKey: "AIzaSyBg_MLIEqy8-yGnX1HtlDH_2KIi-FuLM",
+  apiKey: "AIzaSyBg_MLIEqy8-_yGnX1HtlDH__2KIi-FuLM", 
   authDomain: "ecoturismo-5a0e0.firebaseapp.com",
   projectId: "ecoturismo-5a0e0",
-  storageBucket: "ecoturismo-5a0e0.appspot.com",
+  storageBucket: "ecoturismo-5a0e0.appspot.com", 
   messagingSenderId: "1046038352351",
   appId: "1:1046038352351:web:25d154de1f65041489346a",
   measurementId: "G-QSCEL7X9NW"
 };
-
 // 🚀 Inicializa Firebase
 const app = initializeApp(firebaseConfig);
 
@@ -58,7 +58,7 @@ export const mongoService = {
   async createUser(userData) {
     try {
       console.log("MONGO SERVICE: Creando usuario en MongoDB Atlas...", userData);
-      const response = await fetch(`${API_BASE_URL}/users`, {
+      const response = await fetch(`${API_BASE_URL}/users`, {y
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
