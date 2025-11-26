@@ -41,34 +41,9 @@ export default function GridDeTarjetas({ titulo, subtitulo, items, tipo }) {
       <div className="max-w-7xl mx-auto w-full">
         {/* Encabezado RESPONSIVO */}
         <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-          <div
-            className={`inline-block ${
-              tipo === "actividades"
-                ? darkMode 
-                  ? "bg-green-700" 
-                  : "bg-green-600"
-                : darkMode 
-                  ? "bg-gradient-to-r from-accent-600 to-accent-700" 
-                  : "bg-gradient-to-r from-accent-500 to-accent-600"
-            } text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full text-xs sm:text-sm font-semibold mb-3 sm:mb-4 shadow-lg transition-all duration-300`}
-          >
-            {tipo === "actividades" ? "🏞️ Experiencias Únicas" : "🗺️ Descubre"}
-          </div>
+          
 
-          <h2 className={`font-black mb-4 sm:mb-6 transition-all duration-500 ${
-            darkMode ? 'text-white' : 'text-gray-900'
-          } text-2xl sm:text-3xl md:text-4xl lg:text-5xl`}>
-            {titulo}{" "}
-            {tipo === "lugares" && (
-              <span className={`${
-                darkMode 
-                  ? "text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-secondary-400" 
-                  : "text-transparent bg-clip-text bg-gradient-to-r from-accent-600 to-secondary-600"
-              }`}>
-                Emblemáticos
-              </span>
-            )}
-          </h2>
+          
 
           <p className={`max-w-2xl mx-auto leading-relaxed transition-all duration-500 ${
             darkMode ? 'text-gray-300' : 'text-gray-600'
