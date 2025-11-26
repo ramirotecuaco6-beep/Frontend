@@ -39,15 +39,43 @@ export default function GridDeTarjetas({ titulo, subtitulo, items, tipo }) {
       }`}
     >
       <div className="max-w-7xl mx-auto w-full">
-        {/* Encabezado RESPONSIVO */}
-        <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-          
+        {/* ENCABEZADO MEJORADO - ESPACIO PARA NAVBAR EN MÓVIL */}
+        <div className="text-center mb-8 sm:mb-12 lg:mb-16 pt-16 sm:pt-0"> {/* ← Añadido pt-16 para móviles */}
+          {/* Badge con más margen superior en móvil */}
+          <div
+            className={`inline-block ${
+              tipo === "actividades"
+                ? darkMode 
+                  ? "bg-green-700" 
+                  : "bg-green-600"
+                : darkMode 
+                  ? "bg-gradient-to-r from-accent-600 to-accent-700" 
+                  : "bg-gradient-to-r from-accent-500 to-accent-600"
+            } text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full text-xs sm:text-sm font-semibold mb-3 sm:mb-4 shadow-lg transition-all duration-300 mt-4 sm:mt-0`} /* ← Añadido mt-4 para móviles */
+          >
+            {tipo === "actividades" ? "🏞️ Experiencias Únicas" : "🗺️ Descubre"}
+          </div>
 
-          
+          {/* Título principal con mejor espaciado */}
+          <h2 className={`font-black mb-4 sm:mb-6 transition-all duration-500 ${
+            darkMode ? 'text-white' : 'text-gray-900'
+          } text-2xl sm:text-3xl md:text-4xl lg:text-5xl mt-2 sm:mt-0`}> {/* ← Añadido mt-2 para móviles */}
+            {titulo}{" "}
+            {tipo === "lugares" && (
+              <span className={`${
+                darkMode 
+                  ? "text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-secondary-400" 
+                  : "text-transparent bg-clip-text bg-gradient-to-r from-accent-600 to-secondary-600"
+              }`}>
+                Emblemáticos
+              </span>
+            )}
+          </h2>
 
+          {/* Subtítulo con mejor espaciado */}
           <p className={`max-w-2xl mx-auto leading-relaxed transition-all duration-500 ${
             darkMode ? 'text-gray-300' : 'text-gray-600'
-          } text-base sm:text-lg lg:text-xl px-2`}>
+          } text-base sm:text-lg lg:text-xl px-2 mt-3 sm:mt-0`}> {/* ← Añadido mt-3 para móviles */}
             {subtitulo}
           </p>
         </div>
