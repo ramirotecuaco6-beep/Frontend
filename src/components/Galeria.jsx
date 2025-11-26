@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
-import { FaCamera, FaImage } from "react-icons/fa";
+import { FaCamera, FaImage, FaChevronLeft, FaChevronRight, FaTimes } from "react-icons/fa";
 
-// ⬅ Cargar URL desde .env
 const BASE_URL = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api`
   : "http://localhost:5000/api";
-
-console.log("🌐 Galería conectada a:", BASE_URL);
 
 export default function Galeria() {
   const { user, token, loading } = useAuth();
@@ -18,8 +15,9 @@ export default function Galeria() {
   const [loadingGallery, setLoadingGallery] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
-  // 🕒 Limpia mensajes después de 4s
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(""), 4000);
@@ -27,7 +25,6 @@ export default function Galeria() {
     }
   }, [message]);
 
-  // 🌍 Cargar fotos públicas
   useEffect(() => {
     const loadPhotos = async () => {
       try {
@@ -35,11 +32,14 @@ export default function Galeria() {
         if (!res.ok) throw new Error("Error cargando galería");
 
         const data = await res.json();
-        if (data.success && Array.isArray(data.photos)) setAllPhotos(data.photos);
-        else setAllPhotos([]);
+        if (data.success && Array.isArray(data.photos)) {
+          setAllPhotos(data.photos);
+        } else {
+          setAllPhotos([]);
+        }
       } catch (err) {
-        console.error(err);
-        setMessage("❌ Error cargando galería");
+        console.error("Error loading photos:", err);
+        setMessage("Error cargando galería");
       } finally {
         setLoadingGallery(false);
       }
@@ -48,27 +48,23 @@ export default function Galeria() {
     if (!loading) loadPhotos();
   }, [loading]);
 
-  // 📤 Subir foto - CORREGIDO: Cambiado de "image" a "photo"
   const handlePhotoUpload = async (e) => {
-    if (!user || !token) return setMessage("❌ Debes iniciar sesión");
+    if (!user || !token) return setMessage("Debes iniciar sesión");
 
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith("image/"))
-      return setMessage("❌ Solo imágenes");
+      return setMessage("Solo imágenes");
     if (file.size > 10 * 1024 * 1024)
-      return setMessage("❌ Máximo 10 MB");
+      return setMessage("Máximo 10 MB");
 
     setUploading(true);
     try {
       const formData = new FormData();
-      // 🔥 CORRECCIÓN: Cambiado de "image" a "photo"
       formData.append("photo", file);
       formData.append("description", "Compartiendo mi experiencia en Ecolibres");
       formData.append("location", "Libres, Puebla");
       formData.append("isPublic", "true");
-
-      console.log('📤 Enviando foto con campo:', "photo");
 
       const res = await fetch(`${BASE_URL}/user/upload-photo`, {
         method: "POST",
@@ -79,24 +75,77 @@ export default function Galeria() {
       const data = await res.json();
       
       if (!res.ok) {
-        console.error('❌ Error del servidor:', data);
         throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
       }
 
       if (data.success) {
         setAllPhotos((prev) => [data.photo, ...prev]);
-        setMessage("✅ Foto subida correctamente");
+        setMessage("Foto subida correctamente");
       } else {
         throw new Error(data.error || "Error desconocido");
       }
     } catch (err) {
-      console.error("❌ Error completo al subir:", err);
-      setMessage("❌ No se pudo subir la imagen: " + err.message);
+      setMessage("No se pudo subir la imagen: " + err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
     }
   };
+
+  // 🆕 FUNCIÓN CORREGIDA - Abrir modal
+  const openModal = (index) => {
+    console.log("🖱️ Abriendo modal con índice:", index);
+    setCurrentPhotoIndex(index);
+    setIsModalOpen(true);
+  };
+
+  // 🆕 FUNCIÓN CORREGIDA - Cerrar modal
+  const closeModal = () => {
+    console.log("❌ Cerrando modal");
+    setIsModalOpen(false);
+  };
+
+  // 🆕 FUNCIÓN CORREGIDA - Navegar fotos
+  const navigatePhotos = (direction) => {
+    let newIndex = currentPhotoIndex + direction;
+    const totalPhotos = allPhotos.length;
+
+    if (newIndex >= totalPhotos) {
+      newIndex = 0;
+    } else if (newIndex < 0) {
+      newIndex = totalPhotos - 1;
+    }
+    console.log("🔄 Navegando a foto:", newIndex);
+    setCurrentPhotoIndex(newIndex);
+  };
+
+  // 🆕 FUNCIÓN CORREGIDA - Obtener URL de foto actual
+  const getCurrentPhotoUrl = () => {
+    if (allPhotos.length === 0) return "";
+    const photo = allPhotos[currentPhotoIndex];
+    const url = photo.url || photo.secure_url || photo.imageUrl || "";
+    console.log("📷 URL de foto actual:", url);
+    return url;
+  };
+
+  // 🆕 EFECTO PARA CERRAR CON TECLA ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden'; // Evitar scroll
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
 
   return (
     <div
@@ -174,7 +223,7 @@ export default function Galeria() {
                 <a
                   href="#"
                   onClick={() =>
-                    setMessage("🔒 Inicia sesión desde el menú superior")
+                    setMessage("Inicia sesión desde el menú superior")
                   }
                   className={`font-semibold ${
                     darkMode
@@ -189,7 +238,7 @@ export default function Galeria() {
           </div>
         </div>
 
-        {/* Carga */}
+        {/* Mensaje de carga de subida */}
         {uploading && (
           <div
             className={`rounded-lg p-4 mb-6 text-center ${
@@ -209,7 +258,7 @@ export default function Galeria() {
           </div>
         )}
 
-        {/* Galería */}
+        {/* Galería de Fotos */}
         <div
           className={`rounded-2xl shadow-lg p-6 ${
             darkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
@@ -280,19 +329,20 @@ export default function Galeria() {
                 return (
                   <div
                     key={photo._id || index}
-                    className={`rounded-xl overflow-hidden shadow-md hover:shadow-lg transition ${
+                    className={`rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105 ${
                       darkMode
-                        ? "bg-gray-700 border border-gray-600"
-                        : "bg-gray-50 hover:bg-white"
+                        ? "bg-gray-700 border border-gray-600 hover:border-gray-500"
+                        : "bg-gray-50 hover:bg-white border border-gray-200 hover:border-gray-300"
                     }`}
+                    onClick={() => openModal(index)}
                   >
                     <img
                       src={imageUrl}
-                      alt={photo.description || "Foto"}
+                      alt={photo.description || "Foto de la galería"}
                       className="w-full h-64 object-cover"
-                      onError={(e) =>
-                        (e.target.src = `https://picsum.photos/600/400?random=${index}`)
-                      }
+                      onError={(e) => {
+                        e.target.src = `https://picsum.photos/600/400?random=${index}`;
+                      }}
                     />
 
                     <div className="p-4">
@@ -313,7 +363,7 @@ export default function Galeria() {
                         <span>
                           {photo.uploadedAt
                             ? new Date(photo.uploadedAt).toLocaleDateString()
-                            : ""}
+                            : "Fecha no disponible"}
                         </span>
                       </div>
 
@@ -339,8 +389,8 @@ export default function Galeria() {
         {/* Mensaje flotante */}
         {message && (
           <div
-            className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
-              message.includes("❌") || message.includes("⚠️")
+            className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+              message.includes("Error") || message.includes("Debes") || message.includes("No se pudo")
                 ? "bg-red-600"
                 : "bg-green-600"
             } text-white`}
@@ -349,6 +399,66 @@ export default function Galeria() {
           </div>
         )}
       </div>
+
+      {/* 🖼️ MODAL DE FOTO EN GRANDE - CORREGIDO */}
+      {isModalOpen && allPhotos.length > 0 && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4"
+          onClick={closeModal}
+        >
+          {/* Contenedor principal - evita cerrar al hacer click en la imagen */}
+          <div 
+            className="relative w-full h-full flex items-center justify-center max-w-7xl max-h-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botón Cerrar */}
+            <button 
+              className="absolute top-4 right-4 z-60 text-white text-3xl p-3 rounded-full bg-black/50 hover:bg-black/70 transition-all duration-300"
+              onClick={closeModal}
+            >
+              <FaTimes />
+            </button>
+
+            {/* Botón Anterior */}
+            <button
+              className="absolute left-4 z-60 p-4 text-white text-2xl bg-black/50 hover:bg-black/70 rounded-full transition-all duration-300"
+              onClick={() => navigatePhotos(-1)}
+            >
+              <FaChevronLeft />
+            </button>
+
+            {/* Imagen Principal */}
+            <div className="flex items-center justify-center w-full h-full p-8">
+              <img
+                src={getCurrentPhotoUrl()}
+                alt={allPhotos[currentPhotoIndex]?.description || "Foto en grande"}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            </div>
+
+            {/* Botón Siguiente */}
+            <button
+              className="absolute right-4 z-60 p-4 text-white text-2xl bg-black/50 hover:bg-black/70 rounded-full transition-all duration-300"
+              onClick={() => navigatePhotos(1)}
+            >
+              <FaChevronRight />
+            </button>
+
+            {/* Información de la foto */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 text-white p-4 rounded-lg text-center max-w-2xl w-full mx-4">
+              <p className="font-semibold text-lg">
+                {allPhotos[currentPhotoIndex]?.description || "Sin descripción"}
+              </p>
+              <div className="flex justify-between items-center mt-2 text-sm text-gray-300">
+                <span>📍 {allPhotos[currentPhotoIndex]?.location || "Libres, Puebla"}</span>
+                <span>
+                  {currentPhotoIndex + 1} / {allPhotos.length}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+}   

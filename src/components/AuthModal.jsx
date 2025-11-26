@@ -1,12 +1,5 @@
 import { useState } from "react";
-import { register, login, loginWithGoogle } from "../components/utils/firebase.utils";
-
-// ⬅ Cargar URL desde .env
-const BASE_URL = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : "http://localhost:5000/api";
-
-console.log("🌐 API conectada a:", BASE_URL);
+import { register, login, signInWithGoogle } from "../components/utils/firebase.utils";
 
 const Spinner = () => (
   <svg
@@ -31,6 +24,11 @@ const Spinner = () => (
   </svg>
 );
 
+// ✅ URL CORREGIDA para apuntar a Render
+const BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : "https://ecolibres-backend.onrender.com/api";
+
 export default function AuthModal({ onClose }) {
   const [isLoginView, setIsLoginView] = useState(true);
   const [email, setEmail] = useState("");
@@ -38,8 +36,6 @@ export default function AuthModal({ onClose }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  // 👁 Estado para mostrar/ocultar contraseña
   const [showPassword, setShowPassword] = useState(false);
 
   const toggleView = () => {
@@ -53,15 +49,9 @@ export default function AuthModal({ onClose }) {
   const syncWithBackend = async (user) => {
     try {
       const token = await user.getIdToken();
-      console.log("Token de Firebase (syncWithBackend):", token);
+      localStorage.setItem("token", token);
 
-      // ✅ Guardar token en localStorage para que otros componentes lo usen si hace falta
-      try {
-        localStorage.setItem("token", token);
-      } catch (lsErr) {
-        console.warn("No se pudo guardar token en localStorage:", lsErr);
-      }
-
+      // ✅ URL CORREGIDA - Ya no apunta a localhost
       const response = await fetch(`${BASE_URL}/user/sync`, {
         method: "POST",
         headers: {
@@ -78,10 +68,9 @@ export default function AuthModal({ onClose }) {
         data = null;
       }
 
-      console.log("Respuesta del backend (sync):", data ?? `HTTP ${response.status}`);
       return { ok: true, data };
     } catch (error) {
-      console.error("Error sincronizando con backend:", error);
+      console.error("Error sincronizando:", error);
       return { ok: false, error };
     }
   };
@@ -106,104 +95,60 @@ export default function AuthModal({ onClose }) {
       let userCredential;
 
       if (isLoginView) {
-        console.log("Intentando Iniciar Sesión...");
         userCredential = await login(email, password);
-        console.log("Inicio de sesión exitoso");
         setSuccess("¡Inicio de sesión exitoso!");
       } else {
-        console.log("Intentando Registrar Usuario...");
         userCredential = await register(email, password);
-        console.log("Registro exitoso - Usuario creado en Firebase");
-        setSuccess("¡Registro exitoso! Sincronizando...");
+        setSuccess("¡Registro exitoso!");
       }
 
-      // ✅ Llamada al backend para sincronizar usuario
-      const syncResult = await syncWithBackend(userCredential.user);
+      await syncWithBackend(userCredential.user);
 
-      if (!syncResult.ok) {
-        console.warn("Advertencia: fallo sincronizando con backend:", syncResult.error);
-        if (!isLoginView) {
-          setSuccess("Cuenta creada, pero hubo un problema de sincronización. Puedes iniciar sesión.");
-        }
-      } else {
-        // ✅ FEEDBACK VISUAL MEJORADO
-        if (!isLoginView) {
-          console.log("✅ Registro completado exitosamente");
-          setSuccess("¡Registro completado! Redirigiendo...");
-        } else {
-          setSuccess("¡Sesión iniciada! Redirigiendo...");
-        }
-        
-        // Pequeño delay para que el usuario vea el mensaje de éxito
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // ✅ Cierra el modal después de autenticación exitosa
       onClose();
-
     } catch (err) {
       const errorCode = err.code;
-      let userFriendlyMessage =
-        "Error de conexión o credenciales inválidas. Intenta de nuevo.";
+      let msg = "Error de conexión o credenciales inválidas.";
 
-      if (errorCode === "auth/email-already-in-use") {
-        userFriendlyMessage = "Este correo ya está registrado.";
-      } else if (
-        errorCode === "auth/user-not-found" ||
-        errorCode === "auth/wrong-password" ||
-        errorCode === "auth/invalid-credential"
-      ) {
-        userFriendlyMessage =
-          "Credenciales inválidas. Verifica tu correo o contraseña.";
-      } else if (errorCode === "auth/network-request-failed") {
-        userFriendlyMessage = "Problema de red. Revisa tu conexión a Internet.";
-      } else if (errorCode === "auth/too-many-requests") {
-        userFriendlyMessage = "Demasiados intentos. Intenta más tarde.";
-      }
+      if (errorCode === "auth/email-already-in-use") msg = "Este correo ya está registrado.";
+      if (errorCode === "auth/user-not-found") msg = "Usuario no encontrado.";
+      if (errorCode === "auth/wrong-password") msg = "Contraseña incorrecta.";
+      if (errorCode === "auth/network-request-failed") msg = "Revisa tu conexión.";
+      if (errorCode === "auth/too-many-requests") msg = "Demasiados intentos. Intenta más tarde.";
 
-      setError(userFriendlyMessage);
-      console.error("Error de autenticación:", errorCode, err.message);
+      if (err instanceof Error) msg = err.message;
+      
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   const handleGoogleAuth = async () => {
     setError(null);
     setSuccess(null);
     setIsLoading(true);
 
     try {
-        // Llama a la nueva función que ya maneja la creación/sincronización con MongoDB
-        const userCredential = await loginWithGoogle();
+        const userCredential = await signInWithGoogle();
+        await syncWithBackend(userCredential.user);
+
+        setSuccess("¡Inicio de sesión con Google exitoso!");
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         
-        if (userCredential) {
-            // El syncWithBackend es opcional si el backend necesita hacer más cosas post-auth
-            await syncWithBackend(userCredential.user); 
-
-            setSuccess("¡Inicio de sesión con Google exitoso!");
-            
-            // Esperar un poco y cerrar el modal
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            onClose();
-        }
+        onClose();
     } catch (err) {
-        console.error("Error en Google Auth:", err);
-        let msg = "Error al iniciar sesión con Google.";
-
-        if (err.code === 'auth/popup-closed-by-user') {
-            msg = "El inicio de sesión fue cancelado.";
-        } else if (err.message) {
-             // Muestra errores de red del API de MongoDB
-             msg = "Error de conexión: " + err.message;
-        }
+        console.error("Error en autenticación con Google:", err);
+        let msg = "Error al iniciar sesión con Google. Inténtalo de nuevo.";
+        
+        if (err.message.includes("cancelado")) msg = "Inicio de sesión cancelado.";
         
         setError(msg);
-
     } finally {
         setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -211,7 +156,7 @@ export default function AuthModal({ onClose }) {
         
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl"
         >
           ✕
         </button>
@@ -222,7 +167,6 @@ export default function AuthModal({ onClose }) {
 
         <form onSubmit={handleAuth} className="space-y-4">
           
-          {/* EMAIL */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Correo Electrónico
@@ -232,13 +176,11 @@ export default function AuthModal({ onClose }) {
               value={email}
               disabled={isLoading}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500"
               placeholder="tu@correo.com"
-              required
             />
           </div>
 
-          {/* PASSWORD CON OJO 👁 */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Contraseña
@@ -249,62 +191,43 @@ export default function AuthModal({ onClose }) {
               value={password}
               disabled={isLoading}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500"
               placeholder="Mínimo 6 caracteres"
-              required
             />
 
-            {/* Botón para mostrar/ocultar ☀ */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-800"
-              disabled={isLoading}
             >
-              {showPassword ? "☀" : "⛅"}
+              {showPassword ? "☀️" : "⛅"}
             </button>
           </div>
 
-          {/* Success */}
           {success && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm text-center">
               {success}
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">
               {error}
             </div>
           )}
 
-          {/* BOTÓN ENVIAR */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition-all duration-300 flex items-center justify-center disabled:bg-green-400 disabled:cursor-not-allowed"
+            className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 flex items-center justify-center transition duration-150"
           >
-            {isLoading ? (
-              <>
-                <Spinner />
-                {isLoginView ? "Iniciando..." : "Registrando..."}
-              </>
-            ) : isLoginView ? (
-              "Entrar"
-            ) : (
-              "Registrarme"
-            )}
+            {isLoading ? <Spinner /> : isLoginView ? "Entrar" : "Registrarme"}
           </button>
         </form>
 
         <p className="text-center text-sm mt-4 text-gray-600">
           {isLoginView ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}
-          <button 
-            onClick={toggleView} 
-            disabled={isLoading}
-            className="text-green-600 ml-2 font-semibold hover:text-green-700 transition-colors disabled:text-gray-400"
-          >
+          <button onClick={toggleView} className="text-green-600 ml-2 font-semibold hover:text-green-700">
             {isLoginView ? "Regístrate aquí" : "Inicia Sesión"}
           </button>
         </p>
@@ -313,15 +236,18 @@ export default function AuthModal({ onClose }) {
           <button 
             onClick={handleGoogleAuth}
             disabled={isLoading}
-            className="w-full bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-all duration-300 flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-red-600 text-white py-3 rounded-xl font-medium hover:bg-red-700 flex items-center justify-center transition duration-150"
           >
-            {isLoading ? (
-              <Spinner />
-            ) : (
-              <>
-                <span className="text-xl mr-2">G</span>
-                Continuar con Google
-              </>
+            {isLoading ? <Spinner /> : (
+                <>
+                    <svg className="w-5 h-5 mr-3" viewBox="0 0 48 48">
+                        <path fill="#FFC107" d="M43.61 20.083c0-1.372-.117-2.73-.342-4.04H24v7.69h10.94c-.463 2.222-1.895 4.145-3.89 5.485v5.02h6.47c3.795-3.5 5.96-8.625 5.96-14.73z"></path>
+                        <path fill="#FF3D00" d="M24 44c5.166 0 9.86-1.977 13.4-5.192l-6.47-5.02c-1.81 1.05-4.102 1.674-6.93 1.674-5.23 0-9.69-3.54-11.275-8.315h-6.79v5.27C7.657 37.03 15.012 44 24 44z"></path>
+                        <path fill="#4CAF50" d="M12.72 27.288c-.288-.847-.44-1.74-.44-2.688s.152-1.84.44-2.688v-5.27h-6.79C4.69 16.68 4 20.254 4 24s.69 7.32 1.93 10.248l6.79-5.27z"></path>
+                        <path fill="#1976D2" d="M24 10.3c2.723 0 5.25.92 7.22 2.688l5.72-5.72C33.86 3.42 29.234 1 24 1c-8.988 0-16.343 6.97-18.07 16.058l6.79 5.27c1.585-4.775 6.045-8.315 11.275-8.315z"></path>
+                    </svg>
+                    Continuar con Google
+                </>
             )}
           </button>
         </div>

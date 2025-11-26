@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthModal from "./AuthModal";
 import { useAuth } from "../context/AuthContext";
-import { useDarkMode } from "../context/DarkModeContext"; // ✅ Importar el contexto de modo oscuro
+import { useDarkMode } from "../context/DarkModeContext"; 
+
+import logo from '../assets/logo_ proyecto.png';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -11,10 +13,10 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ✅ Obtenemos los datos del contexto
+  // datos del contexto
   const { user, logout, loading } = useAuth();
   
-  // ✅ Obtenemos el estado del modo oscuro
+  // Modo oscuro
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   useEffect(() => {
@@ -57,10 +59,12 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           {/* LOGO */}
-          <div className="flex items-center space-x-3 min-w-[160px]">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-green-700 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white text-2xl font-bold">🌿</span>
-            </div>
+          <div className="flex items-center space-x-3  **min-w-[160px]**">
+            <img 
+              src={logo} 
+              alt="Ecolibres Logo" 
+              className="w-28 h-21 object-contain **ml-[-1.8rem]** "
+            />
             <div>
               <h1
                 className={`text-2xl font-black transition-colors duration-300 ${
@@ -78,7 +82,7 @@ export default function Navbar() {
                     : "text-white/80"
                 }`}
               >
-                Aventuras Naturales
+                De aquí pa'llá.
               </p>
             </div>
           </div>

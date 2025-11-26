@@ -303,17 +303,7 @@ const RutaDetalle = () => {
     };
   }, [nombreLugar]);
 
-  // DEBUG: Verificar qué datos se están cargando
-  useEffect(() => {
-    if (lugarActual) {
-      console.log("🎯 ===== DATOS FINALES CARGADOS =====");
-      console.log("📍 Lugar:", lugarActual.nombre);
-      console.log("🎯 Coordenadas destino:", lugarActual.coordenadas);
-      console.log("🖼️ imagen_url:", lugarActual.imagen_url);
-      console.log("📸 imagenes array:", lugarActual.imagenes);
-      console.log("🔍 Estructura completa:", lugarActual);
-    }
-  }, [lugarActual]);
+
 
   // Auto-avance del carrusel
   useEffect(() => {
@@ -578,27 +568,7 @@ const RutaDetalle = () => {
           🗺️ Ruta hacia: {customDestination ? 'Nuevo Destino' : (lugarActual.nombre || "Destino")}
         </h2>
 
-        {/* Debug info */}
-        <div className={`rounded-lg p-4 mb-6 transition-all duration-300 ${
-          darkMode 
-            ? 'bg-blue-900/30 border border-blue-700' 
-            : 'bg-blue-50 border border-blue-200'
-        }`}>
-          <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-            darkMode ? 'text-blue-300' : 'text-blue-800'
-          }`}>
-            🔍 Información de Debug
-          </h4>
-          <div className={`text-sm space-y-1 transition-colors duration-300 ${
-            darkMode ? 'text-blue-200' : 'text-blue-700'
-          }`}>
-            <div><strong>Lugar:</strong> {lugarActual.nombre}</div>
-            <div><strong>Coordenadas destino:</strong> {JSON.stringify(lugarActual.coordenadas)}</div>
-            <div><strong>imagen_url:</strong> {lugarActual.imagen_url ? 'PRESENTE' : 'AUSENTE'}</div>
-            <div><strong>imagenes array:</strong> {lugarActual.imagenes ? `Array(${lugarActual.imagenes.length})` : 'AUSENTE'}</div>
-            <div><strong>Imágenes para carrusel:</strong> {imagenes.length}</div>
-          </div>
-        </div>
+
 
         {/* Mostrar información de error de GPS si existe */}
         {geoError && (

@@ -89,21 +89,7 @@ export default function Contacto() {
               Respondemos todas tus preguntas en menos de 24 horas.
             </p>
             
-            <div className="space-y-4">
-              {[
-                { icon: "📧", text: "hola@ecolibres.com" },
-                { icon: "📱", text: "+52 123 456 7890" },
-                { icon: "📍", text: "Libres, Puebla, México" },
-                { icon: "🕒", text: "Lun - Dom: 6:00 AM - 8:00 PM" }
-              ].map((contact, idx) => (
-                <div key={idx} className="flex items-center space-x-4 text-white/90">
-                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-md">
-                    <span className="text-xl">{contact.icon}</span>
-                  </div>
-                  <span className="text-lg">{contact.text}</span>
-                </div>
-              ))}
-            </div>
+
           </div>
           
           {/* Formulario */}

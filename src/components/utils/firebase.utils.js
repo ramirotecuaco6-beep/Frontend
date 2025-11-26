@@ -1,76 +1,77 @@
 // ✅ Importa las funciones necesarias del SDK modular de Firebase
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  onAuthStateChanged, 
   signOut,
   getIdToken,
   updateProfile,
-
-  // ⬅ AÑADIDO: Importaciones para Google Sign-In
-  GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup, // <-- NUEVA: Para popups de inicio de sesión
+  GoogleAuthProvider, // <-- NUEVA: Para el proveedor de Google
+  getAdditionalUserInfo // <-- NUEVA: Para saber si es un usuario nuevo
 } from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc 
 } from "firebase/firestore";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
+import { 
+  getStorage, 
+  ref, 
+  uploadBytes, 
+  getDownloadURL 
 } from "firebase/storage";
-
 
 // 🧩 Configuración de Firebase (datos reales del proyecto)
 const firebaseConfig = {
-  apiKey: "AIzaSyBzrDJVcIewmPs28EYyHa_UshiEmoBit2g",
-  authDomain: "proyectointegrador-88694.firebaseapp.com",
-  projectId: "proyectointegrador-88694",
-  storageBucket: "proyectointegrador-88694.firebasestorage.app",
-  messagingSenderId: "406299058803",
-  appId: "1:406299058803:web:9dcd6566a30f22e1568006",
-  measurementId: "G-V8M1DHHMLP"
-};  
+  apiKey: "AIzaSyBg_MLIEqy8-_yGnX1HtlDH__2KIi-FuLM", 
+  authDomain: "ecoturismo-5a0e0.firebaseapp.com",
+  projectId: "ecoturismo-5a0e0",
+  storageBucket: "ecoturismo-5a0e0.appspot.com", 
+  messagingSenderId: "1046038352351",
+  appId: "1:1046038352351:web:25d154de1f65041489346a",
+  measurementId: "G-QSCEL7X9NW"
+};
+
 // 🚀 Inicializa Firebase
 const app = initializeApp(firebaseConfig);
 
 // --- Servicios principales ---
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = getFirestore(app); // Se mantiene para otros usos de Firestore si los necesitas
 export const storage = getStorage(app);
 
-// --- Servicio para MongoDB Atlas ---
-// 🔥 CORREGIDO: Usar variable de entorno de Vite para frontend
-const API_BASE_URL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : 'http://localhost:5000/api';
+// --- Inicializa el proveedor de Google ---
+const googleProvider = new GoogleAuthProvider();
 
-console.log('🌐 API Base URL:', API_BASE_URL);
+// ✅ URL CORREGIDA para apuntar a Render
+const BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : "https://ecolibres-backend.onrender.com/api";
+
+console.log('🌐 API Base URL:', BASE_URL);
 
 export const mongoService = {
   // Crear usuario en MongoDB
   async createUser(userData) {
     try {
       console.log("MONGO SERVICE: Creando usuario en MongoDB Atlas...", userData);
-      const response = await fetch(`${API_BASE_URL}/users`, {
+      const response = await fetch(`${BASE_URL}/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userData)
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error creando usuario en MongoDB');
       }
-
+      
       const result = await response.json();
       console.log("MONGO SERVICE: Usuario creado exitosamente en MongoDB");
       return result;
@@ -84,15 +85,15 @@ export const mongoService = {
   async getUser(uid) {
     try {
       console.log("MONGO SERVICE: Obteniendo usuario desde MongoDB...", uid);
-      const response = await fetch(`${API_BASE_URL}/users/${uid}`);
-
+      const response = await fetch(`${BASE_URL}/users/${uid}`);
+      
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Usuario no encontrado en MongoDB'); // Mensaje clave
+          throw new Error('Usuario no encontrado en MongoDB');
         }
         throw new Error('Error obteniendo usuario de MongoDB');
       }
-
+      
       const userData = await response.json();
       console.log("MONGO SERVICE: Usuario obtenido exitosamente");
       return userData;
@@ -106,19 +107,19 @@ export const mongoService = {
   async updateUser(uid, userData) {
     try {
       console.log("MONGO SERVICE: Actualizando usuario en MongoDB...", uid);
-      const response = await fetch(`${API_BASE_URL}/users/${uid}`, {
+      const response = await fetch(`${BASE_URL}/users/${uid}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userData)
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error actualizando usuario en MongoDB');
       }
-
+      
       const result = await response.json();
       console.log("MONGO SERVICE: Usuario actualizado exitosamente");
       return result;
@@ -132,19 +133,19 @@ export const mongoService = {
   async updateUserAchievements(uid, achievements) {
     try {
       console.log("MONGO SERVICE: Actualizando logros en MongoDB...", uid, achievements);
-      const response = await fetch(`${API_BASE_URL}/users/${uid}/achievements`, {
+      const response = await fetch(`${BASE_URL}/users/${uid}/achievements`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ logros: achievements })
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error actualizando logros');
       }
-
+      
       const result = await response.json();
       console.log("MONGO SERVICE: Logros actualizados exitosamente");
       return result;
@@ -158,19 +159,19 @@ export const mongoService = {
   async addAchievement(uid, achievement) {
     try {
       console.log("MONGO SERVICE: Agregando logro en MongoDB...", uid, achievement);
-      const response = await fetch(`${API_BASE_URL}/users/${uid}/achievements`, {
+      const response = await fetch(`${BASE_URL}/users/${uid}/achievements`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(achievement)
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error agregando logro');
       }
-
+      
       const result = await response.json();
       console.log("MONGO SERVICE: Logro agregado exitosamente");
       return result;
@@ -190,100 +191,10 @@ export const mongoService = {
       console.error('MONGO SERVICE: Error en getUserAchievements:', error);
       throw error;
     }
-  },
-
-  // 🔥 NUEVO: Sincronizar usuario (para login con Google y otros)
-  async syncUser(userData) {
-    try {
-      console.log("MONGO SERVICE: Sincronizando usuario...", userData);
-      const response = await fetch(`${API_BASE_URL}/user/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${await userData.getIdToken?.()}`,
-        },
-        body: JSON.stringify({
-          email: userData.email,
-          uid: userData.uid,
-          displayName: userData.displayName || "",
-          photoURL: userData.photoURL || ""
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error sincronizando usuario');
-      }
-
-      const result = await response.json();
-      console.log("MONGO SERVICE: Usuario sincronizado exitosamente");
-      return result;
-    } catch (error) {
-      console.error('MONGO SERVICE: Error en syncUser:', error);
-      throw error;
-    }
   }
 };
 
 // --- Funciones de autenticación ---
-
-// 🧩 Proveedor de Google
-const googleProvider = new GoogleAuthProvider();
-
-/**
- * Inicia sesión con Google a través de un popup.
- * Crea el usuario en MongoDB si es la primera vez.
- * @returns {Promise<UserCredential>}
- */
-export const loginWithGoogle = async () => {
-  try {
-    console.log("FIREBASE UTILS: 1. Iniciando sesión con Google...");
-
-    // 1. Iniciar sesión con Google (Popup)
-    const userCredential = await signInWithPopup(auth, googleProvider);
-    const user = userCredential.user;
-
-    console.log("FIREBASE UTILS: 2. Usuario autenticado en Auth. UID:", user.uid);
-
-    // 2. Comprobar si el usuario existe en MongoDB Atlas (Lógica de Upsert)
-    try {
-      await mongoService.getUser(user.uid);
-      console.log("FIREBASE UTILS: 3. Usuario ya existe en MongoDB. No se requiere creación.");
-    } catch (error) {
-      // Si el error es 'Usuario no encontrado en MongoDB', procedemos a crearlo.
-      if (error.message === 'Usuario no encontrado en MongoDB') {
-        console.log("FIREBASE UTILS: 3. Usuario NUEVO. Creando registro en MongoDB Atlas...");
-        await mongoService.createUser({
-          uid: user.uid,
-          email: user.email,
-          // Usamos el displayName y photoURL que vienen de Google
-          displayName: user.displayName || user.email.split('@')[0],
-          photoURL: user.photoURL || "",
-          createdAt: new Date().toISOString(),
-          logros: [],
-        });
-        console.log("FIREBASE UTILS: 4. Usuario creado en MongoDB Atlas exitosamente.");
-      } else {
-        // Re-lanzar otros errores (ej. error de red con el API)
-        throw error;
-      }
-    }
-
-    console.log("FIREBASE UTILS: 5. Finalizando función loginWithGoogle.");
-    return userCredential;
-  } catch (error) {
-    console.error("FIREBASE UTILS: 🚨 ERROR en loginWithGoogle:", error.code, error.message);
-
-    // Manejar errores específicos de Google
-    if (error.code === 'auth/popup-closed-by-user') {
-      throw new Error("El inicio de sesión fue cancelado.");
-    } else if (error.code === 'auth/network-request-failed') {
-      throw new Error("Error de conexión. Revisa tu internet.");
-    }
-
-    throw error;
-  }
-};
 
 /**
  * Inicia sesión con correo y contraseña.
@@ -333,7 +244,7 @@ export const register = async (email, password) => {
     return userCredential;
   } catch (error) {
     console.error("FIREBASE UTILS: 🚨 ERROR en register:", error.code, error.message);
-
+    
     // Si falla la creación en MongoDB, podrías considerar eliminar el usuario de Auth
     if (auth.currentUser) {
       try {
@@ -343,9 +254,54 @@ export const register = async (email, password) => {
         console.error("FIREBASE UTILS: Error eliminando usuario de Auth:", deleteError);
       }
     }
-
+    
     throw error;
   }
+};
+
+/**
+ * Inicia sesión con Google (Popup).
+ * Si es la primera vez, crea el usuario en MongoDB Atlas.
+ * @returns {Promise<UserCredential>}
+ */
+export const signInWithGoogle = async () => {
+    try {
+        console.log("FIREBASE UTILS: 1. Iniciando sesión con Google (Popup)...");
+        const userCredential = await signInWithPopup(auth, googleProvider);
+        const user = userCredential.user;
+        
+        // Determinar si el usuario es nuevo usando metadata.creationTime o getAdditionalUserInfo
+        const additionalUserInfo = getAdditionalUserInfo(userCredential);
+        const isNewUser = additionalUserInfo && additionalUserInfo.isNewUser;
+
+        if (isNewUser) {
+            console.log("FIREBASE UTILS: 2. Usuario de Google es NUEVO. Creando en MongoDB Atlas...");
+            // Asegúrate de usar los datos que vienen de Google
+            await mongoService.createUser({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName || "",
+                photoURL: user.photoURL || "",
+                createdAt: new Date().toISOString(),
+                logros: [], // Array vacío inicial
+            });
+            console.log("FIREBASE UTILS: 3. Usuario de Google creado en MongoDB Atlas exitosamente.");
+        } else {
+            console.log("FIREBASE UTILS: 2. Usuario de Google YA EXISTE. Iniciando sesión normal.");
+            // Si el usuario ya existía, asumes que ya está en MongoDB
+        }
+
+        console.log("FIREBASE UTILS: 4. Sesión de Google finalizada.");
+        return userCredential;
+
+    } catch (error) {
+        console.error("FIREBASE UTILS: 🚨 ERROR en signInWithGoogle:", error.code, error.message);
+        // Manejo específico para el cierre del popup
+        if (error.code === 'auth/popup-closed-by-user') {
+            throw new Error("Inicio de sesión cancelado por el usuario.");
+        }
+        throw error;
+    }
 };
 
 // --- Función para actualizar datos del perfil ---
@@ -357,18 +313,18 @@ export const register = async (email, password) => {
 export const updateUserProfile = async (updates = {}) => {
   const user = auth.currentUser;
   if (!user) throw new Error("No hay usuario autenticado");
-
+  
   try {
     console.log("FIREBASE UTILS: Actualizando perfil...", updates);
-
+    
     // Actualizar en Firebase Auth
     await updateProfile(user, updates);
     console.log("FIREBASE UTILS: Perfil actualizado en Firebase Auth");
-
+    
     // Actualizar en MongoDB Atlas
     await mongoService.updateUser(user.uid, updates);
     console.log("FIREBASE UTILS: Perfil actualizado en MongoDB Atlas");
-
+    
   } catch (error) {
     console.error("FIREBASE UTILS: 🚨 ERROR al actualizar perfil:", error);
     throw error;
@@ -384,7 +340,7 @@ export const updateUserProfile = async (updates = {}) => {
  */
 export const uploadImageAndGetURL = async (file, path) => {
   if (!file) throw new Error("No se seleccionó ningún archivo");
-
+  
   try {
     console.log("FIREBASE UTILS: Subiendo imagen...", path);
     const fileRef = ref(storage, path);
@@ -469,19 +425,6 @@ export const getUserData = async (uid) => {
     return userData;
   } catch (error) {
     console.error("FIREBASE UTILS: 🚨 ERROR obteniendo datos del usuario:", error);
-    throw error;
-  }
-};
-
-// 🔥 NUEVO: Función de sincronización para AuthModal
-export const syncUserWithBackend = async (user) => {
-  try {
-    console.log("FIREBASE UTILS: Sincronizando usuario con backend...");
-    const result = await mongoService.syncUser(user);
-    console.log("FIREBASE UTILS: Usuario sincronizado exitosamente");
-    return result;
-  } catch (error) {
-    console.error("FIREBASE UTILS: 🚨 ERROR sincronizando usuario:", error);
     throw error;
   }
 };
