@@ -115,7 +115,7 @@ export default function Inicio() {
           <div className="text-center">
             <div className={`font-bold mb-1 sm:mb-2 drop-shadow-2xl ${
               darkMode ? 'text-primary-300' : 'text-white'
-            } text-xl sm:text-2xl md:text-3xl`}>50+</div>
+            } text-xl sm:text-2xl md:text-3xl`}>5+</div>
             <div className={`text-xs sm:text-sm ${
               darkMode ? 'text-gray-300' : 'text-white/90'
             }`}>Lugares Únicos</div>
