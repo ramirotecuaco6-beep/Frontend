@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import emailjs from '@emailjs/browser'; // 🔥 NUEVO: Importar EmailJS
+import emailjs from '@emailjs/browser';
 
 // ⬅ Cargar URL desde .env (solo para otros endpoints, no para contacto)
 const BASE_URL = import.meta.env.VITE_API_URL 
@@ -45,54 +45,38 @@ export default function Contacto() {
     setMessage("");
 
     try {
-      // 🔥 ENVÍO DIRECTO CON EMAILJS DESDE FRONTEND
-      console.log("📤 Enviando email via EmailJS...", {
+      // 🔥 EMAIL PRINCIPAL (a ti)
+      console.log("📤 Enviando email a administrador...", {
         nombre: formData.nombre,
         email: formData.email,
         asunto: formData.asunto
       });
 
       const result = await emailjs.send(
-        'service_i8je3p5', // Tu Service ID de EmailJS
-        'template_55ymkug', // Template ID para mensajes de contacto
+        'service_i8je3p5',
+        'template_55ymkug',
         {
           from_name: formData.nombre,
           from_email: formData.email,
           subject: formData.asunto || 'Consulta EcoLibres',
           message: formData.mensaje,
-          to_email: 'ramirotecuaco6@gmail.com', // Email donde recibirás los mensajes
+          to_email: 'ramirotecuaco6@gmail.com',
           reply_to: formData.email,
-          timestamp: new Date().toLocaleString()
+          timestamp: new Date().toLocaleString('es-MX', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
         },
-        '6-JA8ypKMOxb0VIKj' // Tu Public Key de EmailJS
+        '6-JA8ypKMOxb0VIKj'
       );
 
-      console.log("✅ Email enviado exitosamente:", result);
+      console.log("✅ Email principal enviado:", result.status);
 
-      // 🔥 OPCIONAL: Enviar email de confirmación al usuario
-      try {
-        await emailjs.send(
-          'service_i8je3p5',
-          'template_z2e7nww', // Template ID para auto-respuesta
-          {
-            from_name: 'Equipo EcoLibres',
-            from_email: 'ramirotecuaco6@gmail.com',
-            to_email: formData.email,
-            subject: '✅ Confirmación de mensaje recibido',
-            user_name: formData.nombre,
-            user_message: formData.mensaje,
-            timestamp: new Date().toLocaleString()
-          },
-          '6-JA8ypKMOxb0VIKj'
-        );
-        console.log("✅ Email de confirmación enviado");
-      } catch (confirmationError) {
-        console.log("⚠️ Email de confirmación falló (no crítico):", confirmationError);
-      }
-
+      // ✅ ÉXITO - Limpiar formulario y mostrar mensaje
       setMessage("✅ ¡Mensaje enviado correctamente! Te contactaremos en menos de 24 horas.");
-      
-      // Limpiar formulario
       setFormData({
         nombre: "",
         email: "",
@@ -100,14 +84,40 @@ export default function Contacto() {
         mensaje: ""
       });
 
+      // 🔥 EMAIL DE CONFIRMACIÓN (al usuario) - EN SEGUNDO PLANO
+      setTimeout(async () => {
+        try {
+          console.log("🔄 Enviando confirmación a:", formData.email);
+          
+          await emailjs.send(
+            'service_i8je3p5',
+            'template_z2e7nww',
+            {
+              to_email: formData.email, // ✅ PRIMER CAMPO - IMPORTANTE
+              from_name: 'Equipo EcoLibres',
+              from_email: 'ramirotecuaco6@gmail.com', 
+              subject: '✅ Confirmación de mensaje recibido - EcoLibres',
+              user_name: formData.nombre,
+              user_message: formData.mensaje.substring(0, 120) + (formData.mensaje.length > 120 ? '...' : ''),
+              timestamp: new Date().toLocaleString('es-MX')
+            },
+            '6-JA8ypKMOxb0VIKj'
+          );
+          
+          console.log("🎉 Confirmación enviada exitosamente");
+        } catch (confirmationError) {
+          console.log("💤 Confirmación falló (no crítico para el usuario):", confirmationError.message);
+        }
+      }, 1500); // 🔥 Retraso para no bloquear la UI
+
     } catch (error) {
-      console.error("❌ Error enviando email:", error);
+      console.error("❌ Error enviando email principal:", error);
       
       // Mensajes de error más específicos
-      if (error.text?.includes('API calls are disabled')) {
-        setMessage("❌ Error de configuración. Por favor contacta al administrador.");
-      } else if (error.text?.includes('Invalid template ID')) {
-        setMessage("❌ Error en plantilla de email. Contacta al administrador.");
+      if (error.text?.includes('Invalid template ID')) {
+        setMessage("❌ Error en el sistema. Por favor contacta al administrador.");
+      } else if (error.text?.includes('The recipients address is empty')) {
+        setMessage("❌ Error de configuración. Contacta al administrador.");
       } else {
         setMessage("❌ Error al enviar el mensaje. Por favor intenta nuevamente.");
       }
