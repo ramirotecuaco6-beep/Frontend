@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import emailjs from '@emailjs/browser'; // 🔥 NUEVO: Importar EmailJS
 
-// ⬅ Cargar URL desde .env
+// ⬅ Cargar URL desde .env (solo para otros endpoints, no para contacto)
 const BASE_URL = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api`
   : "http://localhost:5000/api";
 
-console.log("🌐 Contacto conectado a:", BASE_URL);
+console.log("🌐 Contacto - EmailJS desde frontend");
 
 export default function Contacto() {
   const [formData, setFormData] = useState({
@@ -33,36 +34,83 @@ export default function Contacto() {
       return;
     }
 
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setMessage("❌ Por favor ingresa un email válido");
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage("");
 
     try {
-      // ✅ ENVÍO REAL AL BACKEND - ACTUALIZADO CON BASE_URL
-      const response = await fetch(`${BASE_URL}/contacto`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+      // 🔥 ENVÍO DIRECTO CON EMAILJS DESDE FRONTEND
+      console.log("📤 Enviando email via EmailJS...", {
+        nombre: formData.nombre,
+        email: formData.email,
+        asunto: formData.asunto
       });
 
-      const data = await response.json();
+      const result = await emailjs.send(
+        'service_i8je3p5', // Tu Service ID de EmailJS
+        'template_55ymkug', // Template ID para mensajes de contacto
+        {
+          from_name: formData.nombre,
+          from_email: formData.email,
+          subject: formData.asunto || 'Consulta EcoLibres',
+          message: formData.mensaje,
+          to_email: 'ramirotecuaco6@gmail.com', // Email donde recibirás los mensajes
+          reply_to: formData.email,
+          timestamp: new Date().toLocaleString()
+        },
+        '6-JA8ypKMOxb0VIKj' // Tu Public Key de EmailJS
+      );
 
-      if (data.success) {
-        setMessage("✅ ¡Mensaje enviado! Los administradores te contactarán en menos de 24 horas.");
-        setFormData({
-          nombre: "",
-          email: "",
-          asunto: "",
-          mensaje: ""
-        });
-      } else {
-        throw new Error(data.error || 'Error al enviar el mensaje');
+      console.log("✅ Email enviado exitosamente:", result);
+
+      // 🔥 OPCIONAL: Enviar email de confirmación al usuario
+      try {
+        await emailjs.send(
+          'service_i8je3p5',
+          'template_z2e7nww', // Template ID para auto-respuesta
+          {
+            from_name: 'Equipo EcoLibres',
+            from_email: 'ramirotecuaco6@gmail.com',
+            to_email: formData.email,
+            subject: '✅ Confirmación de mensaje recibido',
+            user_name: formData.nombre,
+            user_message: formData.mensaje,
+            timestamp: new Date().toLocaleString()
+          },
+          '6-JA8ypKMOxb0VIKj'
+        );
+        console.log("✅ Email de confirmación enviado");
+      } catch (confirmationError) {
+        console.log("⚠️ Email de confirmación falló (no crítico):", confirmationError);
       }
 
+      setMessage("✅ ¡Mensaje enviado correctamente! Te contactaremos en menos de 24 horas.");
+      
+      // Limpiar formulario
+      setFormData({
+        nombre: "",
+        email: "",
+        asunto: "",
+        mensaje: ""
+      });
+
     } catch (error) {
-      console.error("Error enviando formulario:", error);
-      setMessage("❌ Error al enviar el mensaje. Por favor intenta nuevamente.");
+      console.error("❌ Error enviando email:", error);
+      
+      // Mensajes de error más específicos
+      if (error.text?.includes('API calls are disabled')) {
+        setMessage("❌ Error de configuración. Por favor contacta al administrador.");
+      } else if (error.text?.includes('Invalid template ID')) {
+        setMessage("❌ Error en plantilla de email. Contacta al administrador.");
+      } else {
+        setMessage("❌ Error al enviar el mensaje. Por favor intenta nuevamente.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -89,7 +137,21 @@ export default function Contacto() {
               Respondemos todas tus preguntas en menos de 24 horas.
             </p>
             
-
+            {/* Información adicional */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-white/70">
+                <div className="w-2 h-2 bg-accent-400 rounded-full"></div>
+                <span>Respuesta en menos de 24 horas</span>
+              </div>
+              <div className="flex items-center gap-3 text-white/70">
+                <div className="w-2 h-2 bg-accent-400 rounded-full"></div>
+                <span>Atención personalizada</span>
+              </div>
+              <div className="flex items-center gap-3 text-white/70">
+                <div className="w-2 h-2 bg-accent-400 rounded-full"></div>
+                <span>Sin costos de consulta</span>
+              </div>
+            </div>
           </div>
           
           {/* Formulario */}
@@ -189,6 +251,11 @@ export default function Contacto() {
               <p className="text-white/60 text-sm text-center">
                 * Campos obligatorios
               </p>
+
+              {/* Info de EmailJS */}
+              <div className="text-center text-white/40 text-xs">
+                💡 Mensajes enviados directamente via EmailJS
+              </div>
             </form>
           </div>
         </div>
