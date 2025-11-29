@@ -13,6 +13,7 @@ import { useGeolocation } from "./hooks/useGeolocation";
 import { useRouteCalculation } from "./hooks/useRouteCalculation";
 import { useNavigation } from "./hooks/useNavigation";
 import { useDarkMode } from "../context/DarkModeContext";
+import { useAuth } from "../context/AuthContext";
 
 // Componentes modulares
 import ImageCarousel from "./PlaceInfo/ImageCarousel";
@@ -25,10 +26,16 @@ import RouteStats from "./navigation/RouteInfo/RouteStats";
 // Configurar iconos de Leaflet
 setupLeafletIcons();
 
+// Cargar URL desde .env
+const BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : "http://localhost:5000/api";
+
 const RutaDetalle = () => {
   const { nombreLugar } = useParams();
   const navigate = useNavigate();
   const { darkMode } = useDarkMode();
+  const { user } = useAuth();
   
   // Estados del componente
   const [lugarActual, setLugarActual] = useState(null);
@@ -38,6 +45,7 @@ const RutaDetalle = () => {
   const [currentInstruction, setCurrentInstruction] = useState("Haz clic en 'Iniciar Navegación' para comenzar");
   const [autoCentering, setAutoCentering] = useState(true);
   const [customDestination, setCustomDestination] = useState(null);
+  const [inicioNavegacion, setInicioNavegacion] = useState(null);
 
   // Custom Hooks
   const {
@@ -77,79 +85,144 @@ const RutaDetalle = () => {
     handlePositionUpdate
   } = useNavigation(routeCalculated, lugarActual, customDestination, nextTurn, setCurrentInstruction);
 
-  // 🔧 FUNCIÓN PARA NORMALIZAR COORDENADAS (OBJETO → ARRAY)
+  // Función para guardar ruta completada en el backend
+  const guardarRutaCompletada = async (lugar, distancia, duracion, coordenadas, tipoActividad = "senderismo") => {
+    try {
+      if (!user) {
+        console.warn('No hay usuario autenticado para guardar ruta');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${BASE_URL}/users/${user.uid}/rutas-completadas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          lugarId: lugar._id || lugar.id,
+          lugarNombre: lugar.nombre,
+          distancia: distancia,
+          duracion: duracion,
+          coordenadas: coordenadas,
+          tipoActividad: tipoActividad,
+          fecha: new Date().toISOString()
+        })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        console.log('Ruta guardada en historial:', data.message);
+        return data;
+      } else {
+        throw new Error(data.message || 'Error al guardar ruta');
+      }
+    } catch (error) {
+      console.error('Error guardando ruta:', error);
+    }
+  };
+
+  // Efecto para detectar cuando el usuario llega al destino y guardar la ruta
+  useEffect(() => {
+    if (distance < 0.1 && isNavigating && lugarActual && inicioNavegacion) {
+      console.log('Usuario llego al destino! Guardando ruta...');
+      
+      // Calcular duracion aproximada
+      const duracionMinutos = Math.floor((Date.now() - inicioNavegacion) / 60000);
+      
+      // Guardar ruta completada
+      guardarRutaCompletada(
+        lugarActual,
+        distance,
+        duracionMinutos,
+        userPath,
+        "senderismo"
+      );
+      
+      // Mostrar mensaje de exito
+      setCurrentInstruction(`¡Llegaste a ${lugarActual.nombre}! Ruta guardada en tu historial.`);
+      
+      // Vibrar si el dispositivo lo permite
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+    }
+  }, [distance, isNavigating, lugarActual, inicioNavegacion, userPath]);
+
+  // Función para normalizar coordenadas (objeto → array)
   const normalizarCoordenadas = (lugar) => {
     if (!lugar || !lugar.coordenadas) {
-      console.warn("❌ No hay coordenadas para normalizar");
+      console.warn("No hay coordenadas para normalizar");
       return null;
     }
     
-    console.log("🔄 Normalizando coordenadas:", lugar.coordenadas);
-    console.log("📊 Tipo de coordenadas:", typeof lugar.coordenadas);
-    console.log("🔍 Es array?:", Array.isArray(lugar.coordenadas));
+    console.log("Normalizando coordenadas:", lugar.coordenadas);
+    console.log("Tipo de coordenadas:", typeof lugar.coordenadas);
+    console.log("Es array?:", Array.isArray(lugar.coordenadas));
     
     let lat, lng;
     
     // Caso 1: Ya es un array [lat, lng]
     if (Array.isArray(lugar.coordenadas) && lugar.coordenadas.length === 2) {
       [lat, lng] = lugar.coordenadas;
-      console.log("✅ Coordenadas ya son array:", [lat, lng]);
+      console.log("Coordenadas ya son array:", [lat, lng]);
     }
     // Caso 2: Es un objeto {lat, lng} 
     else if (lugar.coordenadas.lat !== undefined && lugar.coordenadas.lng !== undefined) {
       lat = lugar.coordenadas.lat;
       lng = lugar.coordenadas.lng;
-      console.log("✅ Coordenadas convertidas de objeto {lat, lng}:", [lat, lng]);
+      console.log("Coordenadas convertidas de objeto {lat, lng}:", [lat, lng]);
     }
     // Caso 3: Es un objeto con índices numéricos {0: lat, 1: lng}
     else if (lugar.coordenadas[0] !== undefined && lugar.coordenadas[1] !== undefined) {
       lat = lugar.coordenadas[0];
       lng = lugar.coordenadas[1];
-      console.log("✅ Coordenadas convertidas de objeto {0, 1}:", [lat, lng]);
+      console.log("Coordenadas convertidas de objeto {0, 1}:", [lat, lng]);
     }
     // Caso 4: Es un objeto anidado (puede pasar con MongoDB)
     else if (lugar.coordenadas.coordinates && Array.isArray(lugar.coordenadas.coordinates)) {
       [lng, lat] = lugar.coordenadas.coordinates; // MongoDB usa [lng, lat]
-      console.log("✅ Coordenadas convertidas de GeoJSON:", [lat, lng]);
+      console.log("Coordenadas convertidas de GeoJSON:", [lat, lng]);
     }
     else {
-      console.warn("❌ Formato de coordenadas no reconocido:", lugar.coordenadas);
+      console.warn("Formato de coordenadas no reconocido:", lugar.coordenadas);
       return null;
     }
     
     // Validar que las coordenadas sean números válidos
     if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
-      console.warn("❌ Coordenadas no son números válidos:", lat, lng);
+      console.warn("Coordenadas no son números válidos:", lat, lng);
       return null;
     }
     
     // Validar rangos de latitud y longitud
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      console.warn("❌ Coordenadas fuera de rango:", lat, lng);
+      console.warn("Coordenadas fuera de rango:", lat, lng);
       return null;
     }
     
     const coordenadasNormalizadas = [lat, lng];
-    console.log("🎯 Coordenadas finales normalizadas:", coordenadasNormalizadas);
+    console.log("Coordenadas finales normalizadas:", coordenadasNormalizadas);
     
     // Verificar si son coordenadas de CDMX
     const esCDMX = lat === 19.4326 && lng === -99.1332;
     if (esCDMX) {
-      console.warn("⚠️ Las coordenadas son de CDMX, probablemente valores por defecto");
+      console.warn("Las coordenadas son de CDMX, probablemente valores por defecto");
     }
     
     return coordenadasNormalizadas;
   };
 
-  // 🔍 BUSCAR LUGAR POR NOMBRE O ID - CON NORMALIZACIÓN DE COORDENADAS
+  // Buscar lugar por nombre o ID - con normalización de coordenadas
   useEffect(() => {
     let mounted = true;
     const fetchLugar = async () => {
       setLoadingLugar(true);
       setErrorLugar(null);
 
-      console.log("🔍 ===== INICIANDO BÚSQUEDA =====");
-      console.log("📋 Parámetro recibido:", nombreLugar);
+      console.log("Iniciando busqueda");
+      console.log("Parametro recibido:", nombreLugar);
 
       if (!nombreLugar) {
         setErrorLugar("No se especificó el destino.");
@@ -164,22 +237,22 @@ const RutaDetalle = () => {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(decodedNombre);
         
         if (isObjectId) {
-          console.log("📋 El parámetro parece un ObjectId, buscando por ID...");
+          console.log("El parámetro parece un ObjectId, buscando por ID...");
           // Buscar por ID
           try {
             const lugarData = await apiService.getLugarPorId(decodedNombre);
             if (mounted && lugarData) {
               const lugarFinal = lugarData.lugar || lugarData;
-              console.log("✅ Lugar encontrado por ID:", lugarFinal.nombre);
-              console.log("📍 Coordenadas originales:", lugarFinal.coordenadas);
+              console.log("Lugar encontrado por ID:", lugarFinal.nombre);
+              console.log("Coordenadas originales:", lugarFinal.coordenadas);
               
               // Normalizar coordenadas
               const coordenadasNormalizadas = normalizarCoordenadas(lugarFinal);
               if (coordenadasNormalizadas) {
                 lugarFinal.coordenadas = coordenadasNormalizadas;
-                console.log("🔄 Coordenadas normalizadas:", lugarFinal.coordenadas);
+                console.log("Coordenadas normalizadas:", lugarFinal.coordenadas);
               } else {
-                console.warn("⚠️ No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
+                console.warn("No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
                 const coordenadasReales = {
                   "Grutas de Xonotla": [19.8546, -97.3556],
                   "Río Libres": [19.8000, -97.4000]
@@ -192,21 +265,21 @@ const RutaDetalle = () => {
               throw new Error("No se encontró lugar con ese ID");
             }
           } catch (errId) {
-            console.warn("❌ No se encontró por ID, intentando por nombre...");
+            console.warn("No se encontró por ID, intentando por nombre...");
             try {
               const res = await apiService.getLugarPorNombre(decodedNombre);
               if (mounted && res) {
                 const lugarFinal = res.lugar || res;
-                console.log("✅ Lugar encontrado por nombre:", lugarFinal.nombre);
-                console.log("📍 Coordenadas originales:", lugarFinal.coordenadas);
+                console.log("Lugar encontrado por nombre:", lugarFinal.nombre);
+                console.log("Coordenadas originales:", lugarFinal.coordenadas);
                 
                 // Normalizar coordenadas
                 const coordenadasNormalizadas = normalizarCoordenadas(lugarFinal);
                 if (coordenadasNormalizadas) {
                   lugarFinal.coordenadas = coordenadasNormalizadas;
-                  console.log("🔄 Coordenadas normalizadas:", lugarFinal.coordenadas);
+                  console.log("Coordenadas normalizadas:", lugarFinal.coordenadas);
                 } else {
-                  console.warn("⚠️ No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
+                  console.warn("No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
                   const coordenadasReales = {
                     "Grutas de Xonotla": [19.8546, -97.3556],
                     "Río Libres": [19.8000, -97.4000]
@@ -223,21 +296,21 @@ const RutaDetalle = () => {
             }
           }
         } else {
-          console.log("📋 El parámetro parece un nombre, buscando por nombre...");
+          console.log("El parámetro parece un nombre, buscando por nombre...");
           try {
             const res = await apiService.getLugarPorNombre(decodedNombre);
             if (mounted && res) {
               const lugarFinal = res.lugar || res;
-              console.log("✅ Lugar encontrado por nombre:", lugarFinal.nombre);
-              console.log("📍 Coordenadas originales:", lugarFinal.coordenadas);
+              console.log("Lugar encontrado por nombre:", lugarFinal.nombre);
+              console.log("Coordenadas originales:", lugarFinal.coordenadas);
               
               // Normalizar coordenadas
               const coordenadasNormalizadas = normalizarCoordenadas(lugarFinal);
               if (coordenadasNormalizadas) {
                 lugarFinal.coordenadas = coordenadasNormalizadas;
-                console.log("🔄 Coordenadas normalizadas:", lugarFinal.coordenadas);
+                console.log("Coordenadas normalizadas:", lugarFinal.coordenadas);
               } else {
-                console.warn("⚠️ No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
+                console.warn("No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
                 const coordenadasReales = {
                   "Grutas de Xonotla": [19.8546, -97.3556],
                   "Río Libres": [19.8000, -97.4000]
@@ -250,14 +323,14 @@ const RutaDetalle = () => {
               throw new Error("No se encontró lugar con ese nombre");
             }
           } catch (errName) {
-            console.warn("❌ No se encontró por nombre, intentando en lista completa...");
+            console.warn("No se encontró por nombre, intentando en lista completa...");
             // Fallback: buscar en lista completa
             const all = await apiService.getLugares();
             if (!Array.isArray(all) || all.length === 0) {
               throw new Error("No hay lugares disponibles en el sistema");
             }
             
-            console.log("📊 Total de lugares disponibles:", all.length);
+            console.log("Total de lugares disponibles:", all.length);
             
             // Buscar por nombre (case insensitive)
             const matchByName = all.find((it) => {
@@ -266,16 +339,16 @@ const RutaDetalle = () => {
             });
             
             if (matchByName) {
-              console.log("✅ Lugar encontrado en lista completa:", matchByName.nombre);
-              console.log("📍 Coordenadas originales:", matchByName.coordenadas);
+              console.log("Lugar encontrado en lista completa:", matchByName.nombre);
+              console.log("Coordenadas originales:", matchByName.coordenadas);
               
               // Normalizar coordenadas
               const coordenadasNormalizadas = normalizarCoordenadas(matchByName);
               if (coordenadasNormalizadas) {
                 matchByName.coordenadas = coordenadasNormalizadas;
-                console.log("🔄 Coordenadas normalizadas:", matchByName.coordenadas);
+                console.log("Coordenadas normalizadas:", matchByName.coordenadas);
               } else {
-                console.warn("⚠️ No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
+                console.warn("No se pudieron normalizar las coordenadas, usando coordenadas reales de Puebla");
                 const coordenadasReales = {
                   "Grutas de Xonotla": [19.8546, -97.3556],
                   "Río Libres": [19.8000, -97.4000]
@@ -290,7 +363,7 @@ const RutaDetalle = () => {
           }
         }
       } catch (err) {
-        console.error("❌ Error cargando lugar:", err);
+        console.error("Error cargando lugar:", err);
         if (mounted) setErrorLugar(err.message || "No se pudo cargar el lugar");
       } finally {
         if (mounted) setLoadingLugar(false);
@@ -302,8 +375,6 @@ const RutaDetalle = () => {
       mounted = false;
     };
   }, [nombreLugar]);
-
-
 
   // Auto-avance del carrusel
   useEffect(() => {
@@ -324,14 +395,14 @@ const RutaDetalle = () => {
     
     const newDestination = [latlng.lat, latlng.lng];
     setCustomDestination(newDestination);
-    setCurrentInstruction("🔄 Calculando nueva ruta...");
+    setCurrentInstruction("Calculando nueva ruta...");
     
     try {
       await calculateRouteWithMapbox(position, newDestination, lugarActual, newDestination, autoCentering);
-      setCurrentInstruction("✅ Nueva ruta calculada. Continúa tu viaje.");
+      setCurrentInstruction("Nueva ruta calculada. Continúa tu viaje.");
     } catch (err) {
       console.error("Error al recalcular ruta:", err);
-      setCurrentInstruction("❌ Error al recalcular la ruta");
+      setCurrentInstruction("Error al recalcular la ruta");
     }
   };
 
@@ -340,19 +411,19 @@ const RutaDetalle = () => {
     setAutoCentering(prev => !prev);
     setCurrentInstruction(
       autoCentering 
-        ? "📍 Centrado automático DESACTIVADO - Puedes mover el mapa libremente" 
-        : "📍 Centrado automático ACTIVADO - El mapa te seguirá"
+        ? "Centrado automático DESACTIVADO - Puedes mover el mapa libremente" 
+        : "Centrado automático ACTIVADO - El mapa te seguirá"
     );
   };
 
   // Iniciar navegación con verificación de permisos
   const startNavigation = async () => {
-    console.log("🚀 ===== INICIANDO NAVEGACIÓN =====");
-    console.log("📍 Lugar actual:", lugarActual?.nombre);
-    console.log("🎯 Coordenadas destino:", lugarActual?.coordenadas);
+    console.log("Iniciando navegación");
+    console.log("Lugar actual:", lugarActual?.nombre);
+    console.log("Coordenadas destino:", lugarActual?.coordenadas);
 
     if (!lugarActual?.coordenadas) {
-      setCurrentInstruction("❌ Coordenadas del destino no disponibles");
+      setCurrentInstruction("Coordenadas del destino no disponibles");
       return;
     }
 
@@ -361,27 +432,30 @@ const RutaDetalle = () => {
       const permissionStatus = await checkPermissions();
       
       if (permissionStatus === 'denied') {
-        setCurrentInstruction("❌ Permiso de ubicación denegado. Por favor habilita la ubicación en tu navegador.");
+        setCurrentInstruction("Permiso de ubicación denegado. Por favor habilita la ubicación en tu navegador.");
         setError("Permiso de ubicación denegado");
         return;
       }
 
+      // Guardar el momento de inicio para calcular duración
+      setInicioNavegacion(Date.now());
+      
       startNav();
       setAutoCentering(true);
       setCustomDestination(null);
-      setCurrentInstruction("📍 Obteniendo tu ubicación GPS...");
+      setCurrentInstruction("Obteniendo tu ubicación GPS...");
 
       const userLocation = await getUserLocation();
       setGpsAvailable(true);
       
       // Mostrar información de precisión obtenida
       if (accuracy) {
-        setCurrentInstruction(`✅ Ubicación obtenida (Precisión: ${accuracy.toFixed(0)}m). Calculando ruta...`);
+        setCurrentInstruction(`Ubicación obtenida (Precisión: ${accuracy.toFixed(0)}m). Calculando ruta...`);
       } else {
-        setCurrentInstruction("✅ Ubicación obtenida. Calculando ruta...");
+        setCurrentInstruction("Ubicación obtenida. Calculando ruta...");
       }
       
-      console.log("🗺️ Calculando ruta desde:", userLocation, "hacia:", lugarActual.coordenadas);
+      console.log("Calculando ruta desde:", userLocation, "hacia:", lugarActual.coordenadas);
       await calculateRouteWithMapbox(userLocation, lugarActual.coordenadas, lugarActual, null, true);
       
       // Iniciar seguimiento GPS
@@ -392,13 +466,13 @@ const RutaDetalle = () => {
     } catch (error) {
       console.error("Error en navegación:", error);
       
-      let errorMessage = "❌ " + error.message;
+      let errorMessage = error.message;
       if (error.message.includes("denied")) {
-        errorMessage = "❌ Permiso de ubicación denegado. Por favor habilita la ubicación en tu navegador.";
+        errorMessage = "Permiso de ubicación denegado. Por favor habilita la ubicación en tu navegador.";
       } else if (error.message.includes("no disponible")) {
-        errorMessage = "❌ GPS no disponible. Verifica que el GPS esté activado y tengas conexión a internet.";
+        errorMessage = "GPS no disponible. Verifica que el GPS esté activado y tengas conexión a internet.";
       } else if (error.message.includes("timeout")) {
-        errorMessage = "❌ Tiempo de espera agotado. Intenta salir al aire libre para mejor señal GPS.";
+        errorMessage = "Tiempo de espera agotado. Intenta salir al aire libre para mejor señal GPS.";
       }
       
       setCurrentInstruction(errorMessage);
@@ -414,6 +488,7 @@ const RutaDetalle = () => {
     setCurrentInstruction("Haz clic en 'Iniciar Navegación' para comenzar");
     setAutoCentering(true);
     setCustomDestination(null);
+    setInicioNavegacion(null);
   };
 
   // Actualizar instrucciones cuando se calcula la ruta
@@ -427,7 +502,7 @@ const RutaDetalle = () => {
   useEffect(() => {
     if (accuracy && accuracy > 100) {
       setCurrentInstruction(prev => 
-        prev + " 💡 Sugerencia: Muévete a un área abierta para mejor precisión GPS"
+        prev + " Sugerencia: Muévete a un área abierta para mejor precisión GPS"
       );
     }
   }, [accuracy]);
@@ -540,8 +615,8 @@ const RutaDetalle = () => {
         ? [lugarActual.imagen_url] 
         : [];
 
-  console.log("🖼️ DEBUG - Imágenes para carrusel:", imagenes);
-  console.log("📊 Cantidad de imágenes:", imagenes.length);
+  console.log("Imágenes para carrusel:", imagenes);
+  console.log("Cantidad de imágenes:", imagenes.length);
 
   return (
     <section className={`pt-24 pb-16 min-h-screen px-6 transition-all duration-500 ${
@@ -565,10 +640,8 @@ const RutaDetalle = () => {
         <h2 className={`text-4xl font-extrabold mb-4 transition-colors duration-300 ${
           darkMode ? 'text-green-400' : 'text-green-700'
         }`}>
-          🗺️ Ruta hacia: {customDestination ? 'Nuevo Destino' : (lugarActual.nombre || "Destino")}
+          Ruta hacia: {customDestination ? 'Nuevo Destino' : (lugarActual.nombre || "Destino")}
         </h2>
-
-
 
         {/* Mostrar información de error de GPS si existe */}
         {geoError && (
@@ -589,7 +662,7 @@ const RutaDetalle = () => {
           </div>
         )}
 
-        {/* 🔥 CARRUSEL DE IMÁGENES - VERSIÓN CORREGIDA */}
+        {/* CARRUSEL DE IMÁGENES - VERSIÓN CORREGIDA */}
         <div className="mb-8">
           {imagenes.length > 0 ? (
             <ImageCarousel 
@@ -644,7 +717,7 @@ const RutaDetalle = () => {
             <h3 className={`text-2xl font-bold transition-colors duration-300 ${
               darkMode ? 'text-green-400' : 'text-green-700'
             }`}>
-              🗺️ Navegación en Tiempo Real
+              Navegación en Tiempo Real
             </h3>
             <NavigationControls 
               isNavigating={isNavigating}

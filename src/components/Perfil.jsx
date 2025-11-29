@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
-// ✅ CORRECCIÓN: Importar updateProfile y updatePassword desde firebase/auth
 import { updateProfile, updatePassword } from "firebase/auth";
 import {
   FaFacebook,
@@ -21,19 +20,22 @@ import {
   FaTree,
   FaMountain,
   FaMoon,
-  FaSun
+  FaSun,
+  FaTrophy,
+  FaRoute,
+  FaMap
 } from "react-icons/fa";
 
-// ⬅ Cargar URL desde .env
+// Cargar URL desde .env
 const BASE_URL = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api`
   : "http://localhost:5000/api";
 
-console.log("🌐 Perfil conectado a:", BASE_URL);
+console.log("Perfil conectado a:", BASE_URL);
 
 export default function Perfil() {
   const { user, logout } = useAuth();
-  const { darkMode, toggleDarkMode } = useDarkMode(); // 👈 Usa el contexto global
+  const { darkMode, toggleDarkMode } = useDarkMode();
 
   const [photoURL, setPhotoURL] = useState("");
   const [displayName, setDisplayName] = useState(user?.displayName || "");
@@ -43,6 +45,11 @@ export default function Perfil() {
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("perfil");
   const [userPhotos, setUserPhotos] = useState([]);
+  
+  // Nuevos estados para el progreso
+  const [rutasCompletadas, setRutasCompletadas] = useState([]);
+  const [estadisticas, setEstadisticas] = useState(null);
+  const [loadingProgreso, setLoadingProgreso] = useState(false);
   
   // Estados para edición
   const [editingPhoto, setEditingPhoto] = useState(null);
@@ -61,12 +68,12 @@ export default function Perfil() {
 
   // Actividades predefinidas
   const activities = [
-    { value: "senderismo", label: "🚶 Senderismo", icon: FaHiking },
-    { value: "natacion", label: "🏊 Natación", icon: FaSwimmer },
-    { value: "camping", label: "🏕️ Camping", icon: FaTree },
-    { value: "escalada", label: "🧗 Escalada", icon: FaMountain },
-    { value: "observacion", label: "🐦 Observación de aves", icon: FaTree },
-    { value: "fotografia", label: "📷 Fotografía natural", icon: FaCamera }
+    { value: "senderismo", label: "Senderismo", icon: FaHiking },
+    { value: "natacion", label: "Natación", icon: FaSwimmer },
+    { value: "camping", label: "Camping", icon: FaTree },
+    { value: "escalada", label: "Escalada", icon: FaMountain },
+    { value: "observacion", label: "Observación de aves", icon: FaTree },
+    { value: "fotografia", label: "Fotografía natural", icon: FaCamera }
   ];
 
   // Sincronizar usuario con backend al cargar
@@ -76,6 +83,50 @@ export default function Perfil() {
       loadProfilePhoto();
     }
   }, [user]);
+
+  // Cargar datos de progreso cuando se active la pestaña
+  useEffect(() => {
+    if (user && activeTab === "progreso") {
+      cargarProgreso();
+    }
+  }, [user, activeTab]);
+
+  // Cargar progreso y estadísticas
+  const cargarProgreso = async () => {
+    if (!user) return;
+    
+    setLoadingProgreso(true);
+    try {
+      const token = await user.getIdToken();
+      
+      // Cargar rutas completadas
+      const resRutas = await fetch(`${BASE_URL}/users/${user.uid}/rutas-completadas`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const dataRutas = await resRutas.json();
+      if (dataRutas.success) {
+        setRutasCompletadas(dataRutas.rutas || []);
+        setEstadisticas(dataRutas.estadisticas);
+      }
+
+      // Cargar estadísticas detalladas
+      const resStats = await fetch(`${BASE_URL}/users/${user.uid}/estadisticas-rutas`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const dataStats = await resStats.json();
+      if (dataStats.success) {
+        setEstadisticas(dataStats.estadisticas);
+      }
+      
+    } catch (error) {
+      console.error('Error cargando progreso:', error);
+      setMessage('Error cargando tu progreso');
+    } finally {
+      setLoadingProgreso(false);
+    }
+  };
 
   // Sincronizar usuario con backend
   const syncUserWithBackend = async () => {
@@ -91,7 +142,7 @@ export default function Perfil() {
       });
       const data = await res.json();
       if (data.success) {
-        console.log("✅ Usuario sincronizado con backend:", data.user);
+        console.log("Usuario sincronizado con backend:", data.user);
         if (data.user.photoUrl) {
           setPhotoURL(data.user.photoUrl);
         }
@@ -150,8 +201,8 @@ export default function Perfil() {
         throw new Error(data.error || "Error cargando fotos");
       }
     } catch (err) {
-      console.error("❌ Error cargando galería:", err);
-      setMessage("❌ Error cargando galería: " + err.message);
+      console.error("Error cargando galería:", err);
+      setMessage("Error cargando galería: " + err.message);
     }
   };
 
@@ -178,13 +229,13 @@ export default function Perfil() {
       if (data.success && data.photoUrl) {
         setPhotoURL(data.photoUrl);
         await updateProfile(user, { photoURL: data.photoUrl });
-        setMessage("✅ Foto de perfil actualizada correctamente");
+        setMessage("Foto de perfil actualizada correctamente");
       } else {
         throw new Error(data.error || "Error al subir la foto");
       }
     } catch (err) {
-      console.error("❌ Error al subir foto:", err);
-      setMessage("❌ Error al subir la foto de perfil: " + err.message);
+      console.error("Error al subir foto:", err);
+      setMessage("Error al subir la foto de perfil: " + err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -197,7 +248,7 @@ export default function Perfil() {
     if (!file) return;
 
     if (file.size > 40 * 1024 * 1024) {
-      setMessage("❌ La imagen es demasiado grande (máx. 40MB)");
+      setMessage("La imagen es demasiado grande (máx. 40MB)");
       return;
     }
 
@@ -210,7 +261,7 @@ export default function Perfil() {
   // Subir foto a galería con todos los datos
   const handleGalleryUpload = async () => {
     if (!selectedFile) {
-      setMessage("❌ Por favor selecciona una foto");
+      setMessage("Por favor selecciona una foto");
       return;
     }
 
@@ -220,7 +271,7 @@ export default function Perfil() {
       const formData = new FormData();
       formData.append("photo", selectedFile);
       formData.append("type", "gallery");
-      formData.append("description", uploadDescription || "Mi aventura en EcoLibres 🌿");
+      formData.append("description", uploadDescription || "Mi aventura en EcoLibres");
       formData.append("location", uploadLocation || "Ubicación no especificada");
       if (uploadActivity) {
         formData.append("activity", uploadActivity);
@@ -235,7 +286,7 @@ export default function Perfil() {
       const data = await res.json();
 
       if (data.success) {
-        setMessage("✅ ¡Foto subida correctamente a tu galería!");
+        setMessage("¡Foto subida correctamente a tu galería!");
         setShowUploadModal(false);
         resetUploadForm();
         loadUserPhotos();
@@ -244,7 +295,7 @@ export default function Perfil() {
       }
     } catch (err) {
       console.error(err);
-      setMessage("❌ Error al subir la foto: " + err.message);
+      setMessage("Error al subir la foto: " + err.message);
     } finally {
       setUploading(false);
     }
@@ -289,15 +340,15 @@ export default function Perfil() {
       const data = await res.json();
 
       if (data.success) {
-        setMessage("✅ Foto actualizada correctamente");
+        setMessage("Foto actualizada correctamente");
         setEditingPhoto(null);
         loadUserPhotos();
       } else {
         throw new Error(data.error || "Error al actualizar la foto");
       }
     } catch (err) {
-      console.error("❌ Error actualizando foto:", err);
-      setMessage("❌ Error al actualizar la foto: " + err.message);
+      console.error("Error actualizando foto:", err);
+      setMessage("Error al actualizar la foto: " + err.message);
     }
   };
 
@@ -320,14 +371,14 @@ export default function Perfil() {
       const data = await res.json();
 
       if (data.success) {
-        setMessage("✅ Foto eliminada correctamente");
+        setMessage("Foto eliminada correctamente");
         loadUserPhotos();
       } else {
         throw new Error(data.error || "Error al eliminar la foto");
       }
     } catch (err) {
-      console.error("❌ Error eliminando foto:", err);
-      setMessage("❌ Error al eliminar la foto: " + err.message);
+      console.error("Error eliminando foto:", err);
+      setMessage("Error al eliminar la foto: " + err.message);
     } finally {
       setDeletingPhoto(null);
     }
@@ -342,16 +393,16 @@ export default function Perfil() {
   // Actualizar nombre
   const handleNameChange = async () => {
     if (!displayName.trim()) {
-      setMessage("⚠️ El nombre no puede estar vacío");
+      setMessage("El nombre no puede estar vacío");
       return;
     }
     setLoading(true);
     try {
       await updateProfile(user, { displayName });
-      setMessage("✅ Nombre actualizado");
+      setMessage("Nombre actualizado");
     } catch (err) {
       console.error(err);
-      setMessage("❌ Error al actualizar el nombre");
+      setMessage("Error al actualizar el nombre");
     } finally {
       setLoading(false);
     }
@@ -360,17 +411,17 @@ export default function Perfil() {
   // Cambiar contraseña
   const handlePasswordChange = async () => {
     if (newPassword.length < 6) {
-      setMessage("⚠️ La contraseña debe tener al menos 6 caracteres");
+      setMessage("La contraseña debe tener al menos 6 caracteres");
       return;
     }
     setLoading(true);
     try {
       await updatePassword(user, newPassword);
-      setMessage("✅ Contraseña actualizada");
+      setMessage("Contraseña actualizada");
       setNewPassword("");
     } catch (err) {
       console.error(err);
-      setMessage("❌ Error al cambiar contraseña. Vuelve a iniciar sesión.");
+      setMessage("Error al cambiar contraseña. Vuelve a iniciar sesión.");
     } finally {
       setLoading(false);
     }
@@ -391,16 +442,18 @@ export default function Perfil() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-900 dark:to-gray-800 p-6 mt-20">
       <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-green-200 dark:border-gray-700">
-        {/* Tabs */}
+        {/* Tabs - AGREGADA PESTAÑA PROGRESO */}
         <div className="flex border-b bg-green-700 dark:bg-gray-900 text-white">
-          {[{ id: "perfil", label: "Perfil", icon: FaUser },
+          {[
+            { id: "perfil", label: "Perfil", icon: FaUser },
+            { id: "progreso", label: "Mi Progreso", icon: FaTrophy },
             { id: "galeria", label: "Galería", icon: FaImages },
             { id: "config", label: "Configuración", icon: FaCog },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-4 text-sm font-medium transition-all flex-1 ${
                 activeTab === tab.id
                   ? "bg-green-800 dark:bg-gray-700 border-b-4 border-white"
                   : "hover:bg-green-600 dark:hover:bg-gray-600"
@@ -437,7 +490,7 @@ export default function Perfil() {
                   />
                 </label>
               </div>
-              {uploading && <p className="text-sm text-gray-500 dark:text-gray-400">📤 Subiendo...</p>}
+              {uploading && <p className="text-sm text-gray-500 dark:text-gray-400">Subiendo...</p>}
 
               <div className="max-w-sm mx-auto text-left">
                 <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
@@ -458,6 +511,166 @@ export default function Perfil() {
                 <label className="block font-semibold text-gray-700 dark:text-gray-300 mt-4 mb-1">Correo</label>
                 <p className="p-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-md">{user.email}</p>
               </div>
+            </div>
+          )}
+
+          {/* NUEVA PESTAÑA: PROGRESO Y MAPA DE CALOR */}
+          {activeTab === "progreso" && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-green-700 dark:text-green-400">
+                Mi Progreso y Logros
+              </h2>
+
+              {loadingProgreso ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando tu progreso...</p>
+                </div>
+              ) : (
+                <>
+                  {/* ESTADÍSTICAS PRINCIPALES */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-green-50 dark:bg-green-900 p-4 rounded-lg text-center">
+                      <FaRoute className="text-3xl text-green-600 dark:text-green-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                        {estadisticas?.totalRutas || 0}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">Rutas Completadas</p>
+                    </div>
+                    
+                    <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg text-center">
+                      <FaMapMarkerAlt className="text-3xl text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                        {estadisticas?.lugaresUnicos || 0}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">Lugares Únicos</p>
+                    </div>
+                    
+                    <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg text-center">
+                      <FaHiking className="text-3xl text-yellow-600 dark:text-yellow-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                        {(estadisticas?.distanciaTotal || 0).toFixed(1)}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">Km Recorridos</p>
+                    </div>
+                    
+                    <div className="bg-purple-50 dark:bg-purple-900 p-4 rounded-lg text-center">
+                      <FaTree className="text-3xl text-purple-600 dark:text-purple-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                        {userPhotos.length}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">Fotos de Aventuras</p>
+                    </div>
+                  </div>
+
+                  {/* MAPA DE CALOR (Placeholder) */}
+                  <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow">
+                    <h3 className="text-xl font-semibold text-green-700 dark:text-green-400 mb-4 flex items-center gap-2">
+                      <FaMap /> Mapa de Mis Aventuras
+                    </h3>
+                    <div className="h-64 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                      {rutasCompletadas.length > 0 ? (
+                        <div className="text-center">
+                          <FaMap className="text-4xl text-gray-400 mb-2 mx-auto" />
+                          <p className="text-gray-600 dark:text-gray-300">
+                            Mapa interactivo con {rutasCompletadas.length} rutas completadas
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            Próximamente: integración con mapas en tiempo real
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <FaMap className="text-4xl text-gray-400 mb-2 mx-auto" />
+                          <p className="text-gray-600 dark:text-gray-300">
+                            Completa tu primera ruta para ver tu mapa de calor
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            Explora lugares y guarda tus aventuras
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* HISTORIAL DE RUTAS RECIENTES */}
+                  <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow">
+                    <h3 className="text-xl font-semibold text-green-700 dark:text-green-400 mb-4">
+                      Historial de Rutas Recientes
+                    </h3>
+                    {rutasCompletadas.length > 0 ? (
+                      <div className="space-y-3">
+                        {rutasCompletadas.slice(0, 5).map((ruta, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
+                            <div>
+                              <p className="font-semibold text-gray-800 dark:text-white">
+                                {ruta.lugarNombre}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">
+                                {ruta.distancia.toFixed(1)} km • {ruta.duracion} min
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {new Date(ruta.fecha).toLocaleDateString()}
+                              </p>
+                              <span className="inline-block bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded-full">
+                                {ruta.tipoActividad}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FaRoute className="text-4xl text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600 dark:text-gray-300">
+                          Aún no has completado rutas
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                          Navega a lugares y completa rutas para ver tu historial aquí
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* LOGROS Y RECOMPENSAS */}
+                  <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow">
+                    <h3 className="text-xl font-semibold text-green-700 dark:text-green-400 mb-4 flex items-center gap-2">
+                      <FaTrophy /> Logros por Desbloquear
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
+                        <div className="text-2xl mb-2">🥾</div>
+                        <p className="font-semibold">Primera Aventura</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Completa tu primera ruta
+                        </p>
+                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
+                          <div 
+                            className="bg-green-600 h-2 rounded-full" 
+                            style={{ width: rutasCompletadas.length > 0 ? '100%' : '0%' }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
+                        <div className="text-2xl mb-2">🏞️</div>
+                        <p className="font-semibold">Explorador Novato</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Visita 3 lugares diferentes
+                        </p>
+                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
+                          <div 
+                            className="bg-green-600 h-2 rounded-full" 
+                            style={{ width: `${Math.min((estadisticas?.lugaresUnicos || 0) / 3 * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -620,7 +833,7 @@ export default function Perfil() {
                   <FaInstagram />
                 </a>
                 <a
-                  href="https://twitter.com/intent/tweet?text=Mis logros en Ecolibres 🌿"
+                  href="https://twitter.com/intent/tweet?text=Mis logros en Ecolibres`"
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-blue-500 dark:hover:text-blue-300 transition"
@@ -732,7 +945,7 @@ export default function Perfil() {
                   disabled={uploading || !selectedFile}
                   className="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition flex items-center justify-center gap-2 disabled:bg-gray-300"
                 >
-                  {uploading ? "Subiendo..." : (<>📤 Subir Aventura</>)}
+                  {uploading ? "Subiendo..." : "Subir Aventura"}
                 </button>
               </div>
             </div>
